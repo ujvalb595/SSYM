@@ -1,0 +1,5 @@
+"use client";
+
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+const data = [{ month: "Mar", amount: 31200 }, { month: "Apr", amount: 35800 }, { month: "May", amount: 40100 }, { month: "Jun", amount: 38500 }, { month: "Jul", amount: 44900 }, { month: "Aug", amount: 48650 }];
+export function CollectionChart() { return <div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}><CartesianGrid vertical={false} stroke="#eee9e1" /><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#78716c", fontSize: 12 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: "#a8a29e", fontSize: 11 }} tickFormatter={(value) => `₹${value / 1000}k`} /><Tooltip cursor={{ fill: "#fff7e5" }} formatter={(value) => [`₹${Number(value ?? 0).toLocaleString("en-IN")}`, "Collection"]} /><Bar dataKey="amount" fill="#d88712" radius={[7, 7, 0, 0]} maxBarSize={46} /></BarChart></ResponsiveContainer></div>; }
