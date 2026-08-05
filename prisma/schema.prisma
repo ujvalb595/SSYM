@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum HighlightType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  name               String
+  email              String               @unique
+  passwordHash       String
+  phone              String?              @unique
+  role               Role                 @default(USER)
+  isActive           Boolean              @default(true)
+  membershipNumber   String?              @unique
+  joinedAt           DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  payments           Payment[]            @relation("MemberPayments")
+  approvedPayments   Payment[]            @relation("ApprovedPayments")
+  paymentApprovalLog PaymentApprovalLog[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  userId        String
+  month         Int
+  year          Int
+  amount        Decimal       @db.Decimal(10, 2)
+  screenshotUrl String?
+  transactionId String?
+  status        PaymentStatus @default(PENDING)
+  remarks       String?
+  submittedAt   DateTime      @default(now())
+  approvedAt    DateTime?
+  approvedById  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User          @relation("MemberPayments", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy    User?         @relation("ApprovedPayments", fields: [approvedById], references: [id])
+  approvalLogs  PaymentApprovalLog[]
+
+  @@unique([userId, month, year])
+  @@index([status])
+}
+
+model PaymentApprovalLog {
+  id        String        @id @default(cuid())
+  paymentId String
+  adminId   String
+  status    PaymentStatus
+  remarks   String?
+  createdAt DateTime      @default(now())
+  payment   Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  admin     User          @relation(fields: [adminId], references: [id])
+}
+
+model Event {
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  date        DateTime
+  time        String
+  venue       String
+  coverImage  String?
+  status      EventStatus     @default(DRAFT)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  highlights  EventHighlight[]
+}
+
+model EventHighlight {
+  id        String        @id @default(cuid())
+  eventId   String
+  type      HighlightType
+  url       String
+  caption   String?
+  createdAt DateTime      @default(now())
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
