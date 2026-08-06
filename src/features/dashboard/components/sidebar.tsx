@@ -1,7 +1,7 @@
 import { CalendarDays, ChartNoAxesCombined, CreditCard, LayoutDashboard, Settings, ShieldCheck, UsersRound } from "lucide-react";
 
 const links = [
-  [LayoutDashboard, "Dashboard", true], [UsersRound, "Members"], [CreditCard, "Payments"], [CalendarDays, "Events"], [ChartNoAxesCombined, "Reports"], [ShieldCheck, "Admins"], [Settings, "Settings"],
+  [LayoutDashboard, "Dashboard", "/dashboard"], [UsersRound, "Members", "/members"], [CreditCard, "Payments", "#"], [CalendarDays, "Events", "#"], [ChartNoAxesCombined, "Reports", "#"], [ShieldCheck, "Admins", "#"], [Settings, "Settings", "#"],
 ] as const;
 
 export function Sidebar() {
@@ -12,7 +12,7 @@ export function Sidebar() {
     </div>
     <nav className="flex-1 space-y-1 px-4 py-7">
       <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.15em] text-stone-400">Management</p>
-      {links.map(([Icon, label, active]) => <a href="#" key={label} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${active ? "bg-gradient-to-r from-[#7257f4] to-[#9b56f1] text-white shadow-lg shadow-violet-200" : "text-stone-500 hover:bg-violet-50 hover:text-[#7257f4]"}`}><Icon size={19} />{label}</a>)}
+      {links.map(([Icon, label, href]) => <a href={href} key={label} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${label === "Dashboard" ? "bg-gradient-to-r from-[#7257f4] to-[#9b56f1] text-white shadow-lg shadow-violet-200" : "text-stone-500 hover:bg-violet-50 hover:text-[#7257f4]"}`}><Icon size={19} />{label}</a>)}
     </nav>
     <div className="m-4 mt-auto rounded-2xl bg-gradient-to-br from-[#c467ec] via-[#8b57f2] to-[#5744db] p-4 text-white shadow-lg shadow-violet-200"><p className="text-sm font-bold">Need a hand?</p><p className="mt-1 text-xs text-white/75">Reach the SSYM support team.</p><a href="#" className="mt-4 block rounded-lg bg-white py-2 text-center text-xs font-bold text-[#7053ee]">Get support</a></div>
   </aside>;
