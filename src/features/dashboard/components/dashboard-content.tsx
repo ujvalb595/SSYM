@@ -5,7 +5,7 @@ const metrics = [
   ["Total Members", "248", "+12 this month", UsersRound, "bg-violet-100 text-violet-600"],
   ["Monthly Collection", "₹ 48,650", "+8.2% from July", IndianRupee, "bg-fuchsia-100 text-fuchsia-600"],
   ["Pending Payments", "32", "Needs follow-up", Clock3, "bg-rose-100 text-rose-700"],
-  ["Approved Payments", "216", "87% collection rate", CheckCircle2, "bg-emerald-100 text-emerald-700"],
+  ["Total Expense", "216", "87% collection rate", CheckCircle2, "bg-emerald-100 text-emerald-700"],
 ] as const;
 
 const payments = [["Rahul Patil", "AUG 2026", "₹500", "Approved"], ["Priya Sharma", "AUG 2026", "₹500", "Pending"], ["Amit Desai", "AUG 2026", "₹1,000", "Approved"], ["Sneha Joshi", "AUG 2026", "₹500", "Pending"]];
