@@ -13,7 +13,7 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 
 export default async function ProfilePage() {
   const session = await auth();
-  if (!session?.user || session.user.isActive === false) redirect("/login");
+  if (!session?.user.isActive) redirect("/login");
   const user = session.user;
   return (
     <DashboardShell section="Account" title="My Profile">

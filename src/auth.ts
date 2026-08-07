@@ -1,28 +1,21 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
-      credentials: { username: {}, password: {} },
+      credentials: { mobileNumber: {}, username: {}, password: {} },
       authorize: async (credentials) => {
-        const parsed = z
-          .object({
-            username: z.string().min(1, "Mobile number is required"),
-            password: z.string().min(1, "Password is required"),
-          })
-          .safeParse(credentials);
+        const rawInput = String(credentials?.mobileNumber || credentials?.username || "").trim();
+        const inputPassword = String(credentials?.password || "");
 
-        if (!parsed.success) return null;
+        if (!rawInput || !inputPassword) return null;
 
-        const rawInput = parsed.data.username.trim();
         const digitsOnly = rawInput.replace(/\D/g, "");
-        const inputPassword = parsed.data.password;
 
         // 1. Demo credentials fallback (if env variables are set)
         if (
@@ -36,52 +29,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: "demo-super-admin",
             name: "Super Admin",
             mobileNumber: rawInput,
-            role: "SUPER_ADMIN",
+            role: Role.SUPER_ADMIN,
             isActive: true,
           };
         }
 
-        // 2. Database authentication by mobileNumber
-        try {
-          const user = await prisma.user.findFirst({
-            where: {
-              OR: [
-                { mobileNumber: rawInput },
-                ...(digitsOnly ? [{ mobileNumber: digitsOnly }] : []),
-              ],
-            },
-          });
+        if (!user.isActive) return null;
 
-          if (!user) {
-            console.log("❌ Auth: User not found in DB for input:", rawInput);
-            return null;
-          }
+        const isPasswordValid = await bcrypt.compare(
+          parsed.data.password,
+          user.passwordHash,
+        );
 
-          if (!user.isActive) {
-            console.log("❌ Auth: User is inactive:", user.id);
-            return null;
-          }
+        if (!isPasswordValid) return null;
 
-          const isPasswordValid = await bcrypt.compare(inputPassword, user.passwordHash);
-
-          if (!isPasswordValid) {
-            console.log("❌ Auth: Password mismatch for user:", user.mobileNumber);
-            return null;
-          }
-
-          console.log("✅ Auth: Authentication successful for:", user.name);
-
-          return {
-            id: user.id,
-            name: user.name,
-            mobileNumber: user.mobileNumber,
-            role: user.role,
-            isActive: true,
-          };
-        } catch (error) {
-          console.error("❌ Auth: Database authentication error:", error);
-          return null;
-        }
+        return {
+          id: user.id,
+          name: user.name,
+          email: `${user.mobileNumber}@ssym.local`,
+          role: user.role,
+          isActive: user.isActive,
+        };
       },
     }),
   ],
@@ -89,15 +57,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt: ({ token, user }) => {
       if (user) {
         token.role = user.role;
-        token.isActive = user.isActive ?? true;
-        token.mobileNumber = user.mobileNumber;
+        token.isActive = user.isActive;
       }
       return token;
     },
     session: ({ session, token }) => {
       if (session?.user) {
         session.user.id = (token.sub || session.user.id) as string;
-        session.user.role = (token.role || "SUPER_ADMIN") as any;
+        session.user.role = (token.role || Role.SUPER_ADMIN) as Role;
         session.user.isActive = token.isActive ?? true;
         session.user.mobileNumber = (token.mobileNumber || "") as string;
       }

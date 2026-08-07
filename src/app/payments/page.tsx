@@ -12,7 +12,7 @@ const members = [
 
 export default async function MembersPage() {
   const session = await auth();
-  if (!session?.user || session.user.isActive === false) redirect("/login");
+  if (!session?.user.isActive) redirect("/login");
   return (
     <DashboardShell section="Management" title="Member Directory">
       <main className="mx-auto max-w-7xl p-5 md:p-9">
