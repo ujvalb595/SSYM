@@ -19,9 +19,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: "demo-super-admin", name: "Super Admin", email: "admin@ssym.local", role: "SUPER_ADMIN", isActive: true };
       }
       if (!process.env.PRISMA_DATABASE_URL) return null;
-      const user = await prisma.user.findUnique({ where: { email: parsed.data.username } });
+      const user = await prisma.user.findUnique({ where: { mobileNumber: parsed.data.username } });
       if (!user?.isActive || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) return null;
-      return { id: user.id, name: user.name, email: user.email, role: user.role, isActive: user.isActive };
+      return { id: user.id, name: user.name, email: `${user.mobileNumber}@ssym.local`, role: user.role, isActive: user.isActive };
     },
   })],
   callbacks: {
