@@ -13,17 +13,20 @@ export default function LoginPage() {
     event.preventDefault();
     setError("");
     setLoading(true);
+
     const values = new FormData(event.currentTarget);
+
     const result = await signIn("credentials", {
-      username: values.get("username"),
+      mobileNumber: values.get("mobileNumber"),
       password: values.get("password"),
       redirect: false,
     });
     if (result?.error) {
-      setError("Invalid username or password.");
+      setError("Invalid mobile number or password.");
       setLoading(false);
       return;
     }
+
     window.location.assign("/dashboard");
   }
 
@@ -34,11 +37,7 @@ export default function LoginPage() {
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white bg-white/85 shadow-[0_25px_80px_rgb(73_42_155_/_0.18)] backdrop-blur md:grid-cols-[1.05fr_0.95fr]">
         <div className="hidden min-h-[590px] flex-col justify-between bg-gradient-to-br from-[#5d47d9] via-[#8255ef] to-[#c05ce9] p-10 text-white md:flex">
           <div>
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/20 text-xl font-black">
-              S
-            </div>
-            <p className="mt-6 text-2xl font-bold">SSYM</p>
-            <p className="mt-1 text-sm text-white/70">Shiv Sai Yuvak Mandal</p>
+            
           </div>
           <div>
             <h1 className="text-4xl font-bold leading-tight">
@@ -70,12 +69,16 @@ export default function LoginPage() {
             </p>
             <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
               <label className="block text-sm font-semibold">
-                Username
+                Mobile Number
                 <input
                   required
-                  name="username"
-                  autoComplete="username"
-                  placeholder="Enter your username"
+                  name="mobile"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
+                  maxLength={10}
+                  placeholder="Enter your 10-digit mobile number"
                   className="mt-2 w-full rounded-xl border border-[#e6e1f3] bg-white px-4 py-3 outline-none transition placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
                 />
               </label>
