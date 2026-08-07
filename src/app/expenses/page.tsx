@@ -1,18 +1,14 @@
 import { redirect } from "next/navigation";
-import { Ellipsis, Eye, Search, UsersRound } from "lucide-react";
+import { CircleCheck, CircleX, CopyCheck, CopyX, Plus, Search, UsersRound, X } from "lucide-react";
 import { auth } from "@/auth";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
-import { AddMemberDialog } from "@/features/members/components/add-member-dialog";
+import { AddExpensesDialog } from "@/features/expenses/components/add-expenses-dialog";
 
 const members = [
-  ["Aarav Patel", "98765 43210", "14 Feb 1996", "B+", "AP"],
-  ["Diya Sharma", "98250 12546", "28 Jul 1999", "O+", "DS"],
-  ["Rohan Mehta", "99881 22045", "06 Nov 1994", "A+", "RM"],
-  ["Kavya Desai", "99138 54720", "19 Mar 2000", "AB+", "KD"],
-  ["Ishaan Joshi", "90990 15236", "02 Jan 1997", "O-", "IJ"],
-  ["Anaya Shah", "97255 88041", "11 Sep 1998", "B+", "AS"],
-  ["Vivaan Trivedi", "98980 44339", "24 May 1995", "A+", "VT"],
-  ["Myra Bhatt", "93132 59004", "17 Dec 2001", "O+", "MB"],
+  ["Aarav Patel"],
+  ["Diya Sharma"],
+  ["Rohan Mehta"],
+  ["Kavya Desai"],
 ] as const;
 
 export default async function MembersPage() {
@@ -23,12 +19,12 @@ export default async function MembersPage() {
       <main className="mx-auto max-w-7xl p-5 md:p-9">
         <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Members</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Expenses</h2>
             <p className="mt-1 text-sm text-stone-500">
-              View and manage your mandal member directory.
+              View and manage your mandal expenses.
             </p>
           </div>
-          <AddMemberDialog />
+          <AddExpensesDialog />
         </div>
         <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
           <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -37,8 +33,8 @@ export default async function MembersPage() {
                 <UsersRound size={20} />
               </span>
               <div>
-                <h3 className="font-bold">All Payments Request</h3>
-                <p className="text-sm text-stone-500">248 registered members</p>
+                <h3 className="font-bold">All Expenses</h3>
+                <p className="text-sm text-stone-500">18 Expenses Request Pending</p>
               </div>
             </div>
             <label className="relative block">
@@ -48,7 +44,7 @@ export default async function MembersPage() {
               />
               <input
                 className="w-full rounded-xl border border-[#e8e3f2] py-2.5 pl-10 pr-4 text-sm outline-none placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100 sm:w-64"
-                placeholder="Search members"
+                placeholder="Search payments"
               />
             </label>
           </div>
@@ -56,50 +52,31 @@ export default async function MembersPage() {
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-[#faf9ff] text-xs uppercase tracking-wide text-stone-400">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Member</th>
-                  <th className="px-6 py-4 font-semibold">Month Requsted</th>
-                  <th className="px-6 py-4 font-semibold">Date</th>
-                  <th className="px-6 py-4 text-right font-semibold">Action</th>
+                  <th className="px-6 py-4 font-semibold">Expense added by</th>
+                  <th className="px-6 py-4 font-semibold">Expense</th>
+                  <th className="px-6 py-4 font-semibold">Expense Detail</th>
+                  <th className="px-6 py-4 font-semibold">Expense Date</th>
+                  <th className="px-6 py-4 text-right font-semibold">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {members.map(([name, mobile, birthday, blood, initials]) => (
+                {members.map(([name]) => (
                   <tr
-                    key={mobile}
+                    key={name}
                     className="border-t border-stone-100 transition hover:bg-violet-50/40"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-xs font-bold text-[#7657f6]">
-                          {initials}
-                        </span>
                         <span className="font-semibold text-[#302a49]">
                           {name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-stone-600">{mobile}</td>
-                    <td className="px-6 py-4 text-stone-600">{birthday}</td>
-                        <td className="px-6 py-4">
-                        <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">
-                            {blood}
-                        </span>
-                        </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          aria-label={`View ${name}`}
-                          className="rounded-lg p-2 text-[#7257f4] hover:bg-violet-100"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          aria-label={`More actions for ${name}`}
-                          className="rounded-lg p-2 text-stone-400 hover:bg-stone-100"
-                        >
-                          <Ellipsis size={18} />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 text-stone-600">Tea</td>
+                    <td className="px-6 py-4 text-stone-600">Ordered tea for faraskhana people.</td>
+                    <td className="px-6 py-4 text-stone-600">14 Jan 2026</td>
+                    <td className="px-6 py-4 text-right font-semibold">
+                      ₹100.00
                     </td>
                   </tr>
                 ))}

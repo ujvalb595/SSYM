@@ -43,24 +43,30 @@ enum BloodGroup {
 }
 
 model User {
-  id               String     @id @default(cuid())
-  name             String
-  email            String     @unique
+  id               String      @id @default(cuid())
+
+  // Login Details
+  mobileNumber     String      @unique
   passwordHash     String
 
-  phone            String?    @unique
+  // Personal Details
+  name             String
   birthDate        DateTime?
   bloodGroup       BloodGroup?
 
-  role             Role       @default(USER)
-  isActive         Boolean    @default(true)
+  // User Role
+  role             Role        @default(USER)
+  isActive         Boolean     @default(true)
 
-  membershipNumber String?    @unique
-  joinedAt         DateTime   @default(now())
+  // Membership
+  membershipNumber String?     @unique
+  joinedAt         DateTime    @default(now())
 
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  // Audit
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
+  // Relations
   payments           Payment[]            @relation("MemberPayments")
   approvedPayments   Payment[]            @relation("ApprovedPayments")
   paymentApprovalLog PaymentApprovalLog[]
