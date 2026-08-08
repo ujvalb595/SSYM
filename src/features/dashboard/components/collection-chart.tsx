@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export interface ChartItem {
@@ -8,6 +9,12 @@ export interface ChartItem {
 }
 
 export function CollectionChart({ data }: { data?: ChartItem[] }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const chartData =
     data && data.length > 0
       ? data
@@ -19,6 +26,10 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
           { month: "Jul", amount: 0 },
           { month: "Aug", amount: 0 },
         ];
+
+  if (!mounted) {
+    return <div className="h-72 w-full rounded-xl bg-violet-50/50 animate-pulse" />;
+  }
 
   return (
     <div className="h-72 w-full">
