@@ -8,7 +8,7 @@ const members = [
   ["Rohan Mehta"],
   ["Kavya Desai"],
 ] as const;
-
+ console.log(members);
 export default async function MembersPage() {
   const session = await auth();
   if (!session?.user.isActive) redirect("/login");
@@ -24,6 +24,7 @@ export default async function MembersPage() {
           </div>
         </div>
         <section className="member-card">
+         
           
         </section>
       </main>

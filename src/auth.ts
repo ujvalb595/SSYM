@@ -1,31 +1,38 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   providers: [
     Credentials({
-      credentials: { mobileNumber: {}, password: {} },
+      credentials: { mobileNumber: {}, username: {}, password: {} },
       authorize: async (credentials) => {
-        const parsed = z
-          .object({
-            mobileNumber: z.string().regex(/^[6-9]\d{9}$/),
-            password: z.string().min(8),
-          })
-          .safeParse(credentials);
+        const rawInput = String(credentials?.mobileNumber || credentials?.username || "").trim();
+        const inputPassword = String(credentials?.password || "");
 
-        if (!parsed.success) return null;
+        if (!rawInput || !inputPassword) return null;
 
-        const user = await prisma.user.findUnique({
-          where: {
-            mobileNumber: parsed.data.mobileNumber,
-          },
-        });
+        const digitsOnly = rawInput.replace(/\D/g, "");
 
-        if (!user) return null;
+        // 1. Demo credentials fallback (if env variables are set)
+        if (
+          process.env.NODE_ENV !== "production" &&
+          process.env.SSYM_DEMO_ADMIN_USERNAME &&
+          process.env.SSYM_DEMO_ADMIN_PASSWORD &&
+          rawInput === process.env.SSYM_DEMO_ADMIN_USERNAME &&
+          inputPassword === process.env.SSYM_DEMO_ADMIN_PASSWORD
+        ) {
+          return {
+            id: "demo-super-admin",
+            name: "Super Admin",
+            mobileNumber: rawInput,
+            role: Role.SUPER_ADMIN,
+            isActive: true,
+          };
+        }
 
         if (!user.isActive) return null;
 
@@ -55,9 +62,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     session: ({ session, token }) => {
-      session.user.id = token.sub!;
-      session.user.role = token.role!;
-      session.user.isActive = token.isActive!;
+      if (session?.user) {
+        session.user.id = (token.sub || session.user.id) as string;
+        session.user.role = (token.role || Role.SUPER_ADMIN) as Role;
+        session.user.isActive = token.isActive ?? true;
+        session.user.mobileNumber = (token.mobileNumber || "") as string;
+      }
       return session;
     },
   },
