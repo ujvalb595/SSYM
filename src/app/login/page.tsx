@@ -35,22 +35,7 @@ export default function LoginPage() {
       <div className="absolute -left-32 top-12 size-96 rounded-full bg-fuchsia-200/40 blur-3xl" />
       <div className="absolute -right-28 bottom-0 size-96 rounded-full bg-violet-300/40 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white bg-white/85 shadow-[0_25px_80px_rgb(73_42_155_/_0.18)] backdrop-blur md:grid-cols-[1.05fr_0.95fr]">
-        <div className="hidden min-h-[590px] flex-col justify-between bg-gradient-to-br from-[#5d47d9] via-[#8255ef] to-[#c05ce9] p-10 text-white md:flex">
-          <div>
-            
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold leading-tight">
-              Together, we grow stronger.
-            </h1>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-white/75">
-              A simple, secure place to manage members, payments, events, and
-              community progress.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-white/65">
-            <ShieldCheck size={16} /> Secure management portal
-          </div>
+        <div className="hidden min-h-[590px] flex-col justify-between bg-gradient-to-br from-[#5d47d9] via-[#8255ef] to-[#c05ce9] p-10 text-white md:flex bg-[url('/login-img.jpg')] bg-cover bg-center">
         </div>
         <div className="flex min-h-[590px] items-center p-7 sm:p-12">
           <div className="w-full">
