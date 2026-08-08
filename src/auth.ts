@@ -8,16 +8,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   providers: [
     Credentials({
-      credentials: { mobileNumber: {}, username: {}, password: {} },
+      credentials: {
+        mobileNumber: {},
+        password: {},
+      },
       authorize: async (credentials) => {
-        const rawInput = String(credentials?.mobileNumber || credentials?.username || "").trim();
+        const rawInput = String(credentials?.mobileNumber || "").trim();
         const inputPassword = String(credentials?.password || "");
 
         if (!rawInput || !inputPassword) return null;
 
         const digitsOnly = rawInput.replace(/\D/g, "");
 
-        // 1. Demo credentials fallback (if env variables are set)
+        // Demo credentials fallback
         if (
           process.env.NODE_ENV !== "production" &&
           process.env.SSYM_DEMO_ADMIN_USERNAME &&
@@ -34,11 +37,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
 
+        // Mobile number acts as the username
+        const user = await prisma.user.findFirst({
+          where: {
+            mobileNumber: digitsOnly,
+          },
+        });
+
+        if (!user) return null;
+
         if (!user.isActive) return null;
 
         const isPasswordValid = await bcrypt.compare(
-          parsed.data.password,
-          user.passwordHash,
+          inputPassword,
+          user.passwordHash
         );
 
         if (!isPasswordValid) return null;
@@ -46,7 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return {
           id: user.id,
           name: user.name,
-          email: `${user.mobileNumber}@ssym.local`,
+          mobileNumber: user.mobileNumber,
           role: user.role,
           isActive: user.isActive,
         };
