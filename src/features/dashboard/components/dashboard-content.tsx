@@ -10,7 +10,16 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { CollectionChart, type ChartItem } from "@/features/dashboard/components/collection-chart";
+import dynamic from "next/dynamic";
+import type { ChartItem } from "@/features/dashboard/components/collection-chart";
+
+const CollectionChart = dynamic(
+  () => import("@/features/dashboard/components/collection-chart").then((m) => m.CollectionChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-72 w-full rounded-xl bg-violet-50/50 animate-pulse" />,
+  }
+);
 
 export interface DashboardData {
   totalMembersCount: number;

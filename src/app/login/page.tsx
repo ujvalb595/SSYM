@@ -15,11 +15,14 @@ export default function LoginPage() {
     setLoading(true);
 
     const values = new FormData(event.currentTarget);
+    const mobileNumber = String(values.get("mobileNumber") || values.get("mobile") || "").trim();
+    const password = String(values.get("password") || "");
 
     const result = await signIn("credentials", {
-      mobileNumber: values.get("mobileNumber"),
-      password: values.get("password"),
+      mobileNumber,
+      password,
       redirect: false,
+      callbackUrl: "/dashboard",
     });
     if (result?.error) {
       setError("Invalid mobile number or password.");
@@ -27,7 +30,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.assign("/dashboard");
+    window.location.replace("/dashboard");
   }
 
   return (
@@ -57,7 +60,7 @@ export default function LoginPage() {
                 Mobile Number
                 <input
                   required
-                  name="mobile"
+                  name="mobileNumber"
                   type="tel"
                   autoComplete="tel"
                   inputMode="numeric"
