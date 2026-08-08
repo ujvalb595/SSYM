@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import { Ellipsis, Eye, Search, UsersRound } from "lucide-react";
+import { Search, UsersRound } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { AddMemberDialog } from "@/features/members/components/add-member-dialog";
+import { MemberActions } from "@/features/members/components/member-actions";
 
 const bloodGroupLabel: Record<string, string> = {
   A_POSITIVE: "A+",
@@ -21,17 +22,19 @@ interface MemberRow {
   name: string;
   mobile: string;
   birthDate: string;
+  rawBirthDate?: string;
   bloodGroup: string;
+  rawBloodGroup?: string;
   initials: string;
 }
 
 const seedMembers: MemberRow[] = [
-  { id: "m1", name: "Aarav Patel", mobile: "98765 43210", birthDate: "14 Feb 1996", bloodGroup: "B+", initials: "AP" },
-  { id: "m2", name: "Diya Sharma", mobile: "98250 12546", birthDate: "28 Jul 1999", bloodGroup: "O+", initials: "DS" },
-  { id: "m3", name: "Rohan Mehta", mobile: "99881 22045", birthDate: "06 Nov 1994", bloodGroup: "A+", initials: "RM" },
-  { id: "m4", name: "Kavya Desai", mobile: "99138 54720", birthDate: "19 Mar 2000", bloodGroup: "AB+", initials: "KD" },
-  { id: "m5", name: "Ishaan Joshi", mobile: "90990 15236", birthDate: "02 Jan 1997", bloodGroup: "O-", initials: "IJ" },
-  { id: "m6", name: "Anaya Shah", mobile: "97255 88041", birthDate: "11 Sep 1998", bloodGroup: "B+", initials: "AS" },
+  { id: "m1", name: "Aarav Patel", mobile: "9876543210", birthDate: "14 Feb 1996", bloodGroup: "B+", initials: "AP" },
+  { id: "m2", name: "Diya Sharma", mobile: "9825012546", birthDate: "28 Jul 1999", bloodGroup: "O+", initials: "DS" },
+  { id: "m3", name: "Rohan Mehta", mobile: "9988122045", birthDate: "06 Nov 1994", bloodGroup: "A+", initials: "RM" },
+  { id: "m4", name: "Kavya Desai", mobile: "9913854720", birthDate: "19 Mar 2000", bloodGroup: "AB+", initials: "KD" },
+  { id: "m5", name: "Ishaan Joshi", mobile: "9099015236", birthDate: "02 Jan 1997", bloodGroup: "O-", initials: "IJ" },
+  { id: "m6", name: "Anaya Shah", mobile: "9725588041", birthDate: "11 Sep 1998", bloodGroup: "B+", initials: "AS" },
 ];
 
 export default async function MembersPage() {
@@ -61,6 +64,10 @@ export default async function MembersPage() {
           ? new Date(u.birthDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
           : "N/A";
 
+        const rawBirthDate = u.birthDate
+          ? new Date(u.birthDate).toISOString().split("T")[0]
+          : undefined;
+
         const blood = u.bloodGroup ? bloodGroupLabel[u.bloodGroup] || u.bloodGroup : "O+";
 
         return {
@@ -68,7 +75,9 @@ export default async function MembersPage() {
           name: u.name,
           mobile: u.mobileNumber || "N/A",
           birthDate,
+          rawBirthDate,
           bloodGroup: blood,
+          rawBloodGroup: u.bloodGroup || undefined,
           initials,
         };
       });
@@ -152,21 +161,13 @@ export default async function MembersPage() {
                         {m.bloodGroup}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          aria-label={`View ${m.name}`}
-                          className="rounded-lg p-2 text-[#7257f4] hover:bg-violet-100"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          aria-label={`More actions for ${m.name}`}
-                          className="rounded-lg p-2 text-stone-400 hover:bg-stone-100"
-                        >
-                          <Ellipsis size={18} />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 text-right">
+                      <MemberActions
+                        member={{
+                          id: m.id,
+                          name: m.name,
+                        }}
+                      />
                     </td>
                   </tr>
                 ))}
