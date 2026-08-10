@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { CircleCheck, CircleX, CopyCheck, CopyX, Plus, Search, UsersRound, X } from "lucide-react";
+import { Search, UsersRound } from "lucide-react";
 import { auth } from "@/auth";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { AddExpensesDialog } from "@/features/expenses/components/add-expenses-dialog";

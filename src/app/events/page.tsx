@@ -2,12 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 
-const members = [
-  ["Aarav Patel"],
-  ["Diya Sharma"],
-  ["Rohan Mehta"],
-  ["Kavya Desai"],
-] as const;
 
 export default async function MembersPage() {
   const session = await auth();

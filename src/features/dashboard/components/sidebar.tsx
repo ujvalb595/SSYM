@@ -7,7 +7,6 @@ import {
   ChartNoAxesCombined,
   CreditCard,
   LayoutDashboard,
-  Settings,
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
