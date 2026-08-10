@@ -10,6 +10,7 @@ const memberSchema = z.object({
   birthDate: z.coerce.date(),
   bloodGroup: z.nativeEnum(BloodGroup).optional().nullable(),
   password: z.string().min(8).max(100),
+  role: z.nativeEnum(Role).optional(),
 });
 
 export async function POST(request: Request) {
@@ -26,7 +27,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, mobile, birthDate, bloodGroup, password } = parsed.data;
+  const { name, mobile, birthDate, bloodGroup, password, role } = parsed.data;
+
+  // Only SUPER_ADMIN can assign SUPER_ADMIN or ADMIN, regular ADMIN can assign ADMIN or USER
+  let assignedRole: Role = Role.USER;
+  if (role) {
+    if (session.user.role === Role.SUPER_ADMIN) {
+      assignedRole = role;
+    } else if (session.user.role === Role.ADMIN && role !== Role.SUPER_ADMIN) {
+      assignedRole = role;
+    }
+  }
 
   try {
     const member = await prisma.user.create({
@@ -36,7 +47,7 @@ export async function POST(request: Request) {
         birthDate,
         bloodGroup: bloodGroup || null,
         passwordHash: await bcrypt.hash(password, 12),
-        role: Role.USER,
+        role: assignedRole,
       },
       select: {
         id: true,
@@ -44,6 +55,7 @@ export async function POST(request: Request) {
         mobileNumber: true,
         birthDate: true,
         bloodGroup: true,
+        role: true,
       },
     });
 

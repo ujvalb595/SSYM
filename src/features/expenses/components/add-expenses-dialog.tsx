@@ -1,153 +1,215 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import type { ReactNode } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
-  CalendarDays,
   ChartNoAxesCombined,
+  FileText,
   IndianRupee,
   Plus,
   X,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export function AddExpensesDialog() {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaved(true);
-    setTimeout(() => {
-      setOpen(false);
-      setSaved(false);
-    }, 900);
+    setError("");
+    setSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const title = String(form.get("title") || "").trim();
+    const description = String(form.get("description") || "").trim();
+    const date = String(form.get("date") || "");
+    const amount = Number(form.get("amount") || 0);
+
+    if (!title) {
+      setError("Please enter expense name.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!amount || amount <= 0) {
+      setError("Please enter a valid positive amount.");
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: description || null,
+          date: date || new Date().toISOString(),
+          amount,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Failed to create expense.");
+        setSubmitting(false);
+        return;
+      }
+
+      setSaved(true);
+      setTimeout(() => {
+        formElement.reset();
+        setOpen(false);
+        setSaved(false);
+        setSubmitting(false);
+        router.refresh();
+      }, 600);
+    } catch {
+      setError("An unexpected network error occurred.");
+      setSubmitting(false);
+    }
   }
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200 hover:brightness-105"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition hover:brightness-105 active:scale-95"
       >
-        <Plus size={17} /> Add Expenses
+        <Plus size={18} /> Add Expense
       </button>
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-member-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        >
-          <button
-            aria-label="Close dialog"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-[#28203e]/35 backdrop-blur-sm"
-          />
-          <section className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="bg-gradient-to-r from-[#654dde] to-[#ad58ef] px-6 py-5 text-white">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-white/70">
-                    MEMBER DIRECTORY
-                  </p>
-                  <h2 id="add-member-title" className="mt-1 text-xl font-bold">
-                    Add New Expense
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setOpen(false)}
-                  aria-label="Close"
-                  className="rounded-lg p-1 text-white/80 hover:bg-white/15 hover:text-white"
-                >
-                  <X size={21} />
-                </button>
-              </div>
-            </div>
-            <form onSubmit={submit} className="space-y-4 p-6">
-              <Field label="Expense" icon={<ChartNoAxesCombined size={17} />}>
-                <input
-                  required
-                  name="Expense"
-                  placeholder="Enter expense name"
-                  className="field"
-                />
-              </Field>
-              <Field label="Expense Detail" icon={<ChartNoAxesCombined size={17} />}>
-                <textarea
-                  required
-                  name="Expensedetail"
-                  placeholder="Enter expense detail"
-                  className="field"
-                />
-              </Field>
-              <Field label="Expense Date" icon={<CalendarDays size={17} />}>
-                <input
-                  required
-                  name="Expensedate"
-                  type="date"
-                  className="field"
-                />
-              </Field>
-              <Field label="Amount" icon={<IndianRupee size={17} />}>
-                <input
-                  required
-                  name="Amount"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="Enter amount"
-                  className="field"
-                />
-              </Field>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl border border-[#e5e0f1] px-4 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-50"
-                >
-                  Cancel
-                </button>
-                <button className="rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200">
-                  {saved ? "Expense added" : "Add Expense"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-      <style jsx>{`
-        .field {
-          width: 100%;
-          border: 1px solid #e6e1f3;
-          border-radius: 0.75rem;
-          padding: 0.7rem 0.85rem;
-          outline: none;
-          font-size: 0.875rem;
-        }
-        .field:focus {
-          border-color: #8660ee;
-          box-shadow: 0 0 0 4px #ede9fe;
-        }
-      `}</style>
-    </>
-  );
-}
 
-function Field({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#403958]">
-        <span className="text-[#7657f6]">{icon}</span>
-        {label}
-      </span>
-      {children}
-    </label>
+      {open && mounted
+        ? createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="bg-gradient-to-r from-[#654dde] to-[#ad58ef] px-6 py-5 text-white">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold tracking-[0.16em] text-white/70">
+                        EXPENSE MANAGEMENT
+                      </p>
+                      <h2 className="mt-1 text-xl font-bold">Add Mandal Expense</h2>
+                    </div>
+                    <button
+                      onClick={() => setOpen(false)}
+                      className="rounded-lg p-1 text-white/80 hover:bg-white/15 hover:text-white"
+                    >
+                      <X size={21} />
+                    </button>
+                  </div>
+                </div>
+
+                {saved ? (
+                  <div className="my-8 rounded-xl bg-emerald-50 p-6 text-center text-emerald-800 border border-emerald-200 mx-6">
+                    <p className="font-bold text-base">Expense Record Added! 🎉</p>
+                    <p className="mt-1 text-xs text-emerald-600">The expense has been successfully logged.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={submit} className="space-y-4 p-6">
+                    {error ? (
+                      <div className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">
+                        {error}
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">
+                        Expense Name *
+                      </label>
+                      <div className="relative">
+                        <ChartNoAxesCombined size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input
+                          required
+                          name="title"
+                          placeholder="e.g. Tea & Refreshment, Sound System"
+                          className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">
+                        Expense Detail
+                      </label>
+                      <div className="relative">
+                        <FileText size={16} className="absolute left-3 top-3 text-stone-400" />
+                        <textarea
+                          name="description"
+                          rows={2}
+                          placeholder="Describe purpose or vendor details"
+                          className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100 resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-600 mb-1">
+                          Expense Date *
+                        </label>
+                        <DatePicker
+                          name="date"
+                          required
+                          defaultValue={new Date().toISOString().split("T")[0]}
+                          placeholder="Select date"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-600 mb-1">
+                          Amount (₹) *
+                        </label>
+                        <div className="relative">
+                          <IndianRupee size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                          <input
+                            required
+                            name="amount"
+                            type="number"
+                            step="0.01"
+                            min="1"
+                            placeholder="Amount in ₹"
+                            className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-stone-100">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="rounded-xl border border-[#e5e0f1] px-4 py-2.5 text-xs font-semibold text-stone-600 hover:bg-stone-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-200 hover:brightness-105 disabled:opacity-50"
+                      >
+                        {submitting ? "Adding..." : "Add Expense"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
