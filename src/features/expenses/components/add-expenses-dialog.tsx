@@ -4,14 +4,9 @@ import { FormEvent, useState } from "react";
 import type { ReactNode } from "react";
 import {
   CalendarDays,
-  ChartArea,
-  ChartNoAxesColumn,
   ChartNoAxesCombined,
   IndianRupee,
-  LockKeyhole,
-  Phone,
   Plus,
-  UserRound,
   X,
 } from "lucide-react";
 

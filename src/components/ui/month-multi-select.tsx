@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Calendar, Check, ChevronDown, X } from "lucide-react";
+import { Calendar, Check, ChevronDown } from "lucide-react";
 
 export interface MonthOption {
   label: string; // e.g. "Oct 2025"

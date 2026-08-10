@@ -96,8 +96,9 @@ export function MakePaymentCard({ userPayments = [] }: MakePaymentCardProps) {
         setSelectedMonths([]);
         router.refresh();
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to submit payment request");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to submit payment request";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
