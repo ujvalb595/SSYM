@@ -61,7 +61,7 @@ export default async function PaymentsPage() {
                 <Wallet size={20} />
               </span>
               <div>
-                <h3 className="font-bold text-[#24203a]">My Payment Requests</h3>
+                <h3 className="font-bold text-[#24203a]">My Payment Requests History</h3>
                 <p className="text-sm text-stone-500">
                   Track the status of your submitted mandal payments (Done / Pending / Reject)
                 </p>
