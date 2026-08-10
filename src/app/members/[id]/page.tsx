@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Phone, Shield, UserRound } from "lucide-react";
+import { ArrowLeft, Calendar, Phone, Shield } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
@@ -69,12 +69,6 @@ export default async function MemberDetailPage({
     year: "numeric",
   });
 
-  const roleBadgeColor =
-    user.role === "SUPER_ADMIN"
-      ? "bg-purple-100 text-purple-700 border-purple-200"
-      : user.role === "ADMIN"
-      ? "bg-blue-100 text-blue-700 border-blue-200"
-      : "bg-violet-100 text-violet-700 border-violet-200";
 
   const roleText =
     user.role === "SUPER_ADMIN"

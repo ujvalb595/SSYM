@@ -21,6 +21,7 @@ export interface PaymentItemData {
   amount: number;
   status: PaymentStatus;
   submittedAt: Date | string;
+  approvedAt?: Date | string | null;
   user?: { name: string; mobileNumber: string };
   approvedBy?: { name: string } | null;
 }
@@ -64,8 +65,9 @@ export function PaymentsRequestsTable({
           description: `Payment request for ${name} has been rejected (Status: Reject).`,
         });
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update payment status");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update payment status";
+      toast.error(message);
     } finally {
       setLoadingId(null);
     }

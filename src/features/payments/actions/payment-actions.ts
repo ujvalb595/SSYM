@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, Prisma } from "@/lib/prisma";
 import { Role, PaymentStatus } from "@prisma/client";
+import type { PaymentItemData } from "@/features/payments/components/payments-requests-table";
 
 export async function submitPaymentRequest(selectedMonthValues: string[]) {
   const session = await auth();
@@ -54,7 +55,23 @@ export async function submitPaymentRequest(selectedMonthValues: string[]) {
   return { success: true, count: selectedMonthValues.length };
 }
 
-function serializePayment(p: any) {
+type PaymentWithRelations = Prisma.PaymentGetPayload<{
+  include: {
+    user: {
+      select: {
+        name: true;
+        mobileNumber: true;
+      };
+    };
+    approvedBy: {
+      select: {
+        name: true;
+      };
+    };
+  };
+}>;
+
+function serializePayment(p: PaymentWithRelations): PaymentItemData {
   return {
     id: p.id,
     userId: p.userId,
@@ -64,8 +81,8 @@ function serializePayment(p: any) {
     status: p.status,
     submittedAt: p.submittedAt ? p.submittedAt.toISOString() : new Date().toISOString(),
     approvedAt: p.approvedAt ? p.approvedAt.toISOString() : null,
-    user: p.user ? { name: p.user.name, mobileNumber: p.user.mobileNumber } : undefined,
-    approvedBy: p.approvedBy ? { name: p.approvedBy.name } : null,
+    user: p.user ? { name: p.user.name ?? "", mobileNumber: p.user.mobileNumber ?? "" } : undefined,
+    approvedBy: p.approvedBy?.name ? { name: p.approvedBy.name } : null,
   };
 }
 
