@@ -16,6 +16,7 @@ interface CustomSelectProps {
   placeholder?: string;
   icon?: ReactNode;
   disabled?: boolean;
+  onChange?: (value: string) => void;
 }
 
 export function CustomSelect({
@@ -25,6 +26,7 @@ export function CustomSelect({
   placeholder = "Select option",
   icon,
   disabled = false,
+  onChange,
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string>(defaultValue);
@@ -45,6 +47,7 @@ export function CustomSelect({
   const handleSelect = (val: string) => {
     if (disabled) return;
     setSelected(val);
+    if (onChange) onChange(val);
     setOpen(false);
   };
 
