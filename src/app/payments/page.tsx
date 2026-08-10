@@ -17,7 +17,12 @@ export default async function PaymentsPage() {
     ? allPayments.filter((p) => p.status === "PENDING").length
     : userPayments.filter((p) => p.status === "PENDING").length;
 
-  // Filter only completed (approved) payments across all members
+  // Only pending requests for Admin/Super Admin table
+  const pendingPayments = allPayments.filter(
+    (p) => p.status === "PENDING"
+  );
+
+  // Only approved payments for payment history
   const approvedPayments = allPayments.filter((p) => p.status === "APPROVED");
 
   return (
@@ -36,22 +41,30 @@ export default async function PaymentsPage() {
         <MakePaymentCard userPayments={userPayments} />
 
         {/* All Payment Requests Section */}
-        <section className="mb-8 overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
-          <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="rounded-xl bg-violet-100 p-2.5 text-[#7257f4]">
-                <UsersRound size={20} />
-              </span>
-              <div>
-                <h3 className="font-bold text-[#24203a]">All Payment Requests</h3>
-                <p className="text-sm text-stone-500">
-                  {pendingCount} Payment Request(s) Pending Approval
-                </p>
+        {session?.user?.role !== "USER" && (
+          <section className="mb-8 overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
+            <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-violet-100 p-2.5 text-[#7257f4]">
+                  <UsersRound size={20} />
+                </span>
+                <div>
+                  <h3 className="font-bold text-[#24203a]">All Payment Requests</h3>
+                  <p className="text-sm text-stone-500">
+                    {pendingCount} Payment Request(s) Pending Approval
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-          <PaymentsRequestsTable initialRequests={allPayments} isAdmin={isAdmin} />
-        </section>
+            <PaymentsRequestsTable
+              initialRequests={pendingPayments}
+              isAdmin={isAdmin}
+              currentUserId={session.user.id}
+              hideStatus
+              hideApprovedBy
+            />
+          </section>
+        )}
 
         {/* User's Own Payment Requests Section */}
         <section className="mb-8 overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">

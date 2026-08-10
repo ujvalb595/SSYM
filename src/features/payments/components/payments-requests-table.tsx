@@ -29,11 +29,19 @@ export interface PaymentItemData {
 interface PaymentsRequestsTableProps {
   initialRequests: PaymentItemData[];
   isAdmin: boolean;
+  currentUserId?: string;
+  hideStatus?: boolean;
+  hideApprovedBy?: boolean;
+
 }
 
 export function PaymentsRequestsTable({
   initialRequests,
   isAdmin,
+  currentUserId,
+  hideStatus = false,
+  hideApprovedBy = false,
+
 }: PaymentsRequestsTableProps) {
   const router = useRouter();
   const [requests, setRequests] = useState<PaymentItemData[]>(initialRequests);
@@ -81,7 +89,14 @@ export function PaymentsRequestsTable({
     );
   }
 
-  const showActionColumn = isAdmin && requests.some((r) => r.status === PaymentStatus.PENDING);
+  const showActionColumn =
+  isAdmin &&
+  requests.some(
+    (r) =>
+      r.status === PaymentStatus.PENDING &&
+      r.userId !== currentUserId
+  );
+
 
   return (
     <div className="overflow-x-auto">
@@ -90,11 +105,13 @@ export function PaymentsRequestsTable({
           <tr>
             {isAdmin && <th className="px-6 py-4 font-semibold">Member</th>}
             <th className="px-6 py-4 font-semibold">Month Requested</th>
-            <th className="px-6 py-4 font-semibold">Amount</th>
             <th className="px-6 py-4 font-semibold">Date Submitted</th>
-            <th className="px-6 py-4 font-semibold">Approved By</th>
-            <th className="px-6 py-4 font-semibold">Status</th>
-            {showActionColumn && <th className="px-6 py-4 text-right font-semibold">Action</th>}
+            <th className="px-6 py-4 font-semibold">Amount</th>
+            {!hideApprovedBy && <th className="px-6 py-4 text-right font-semibold">Approved By</th>}
+            {!hideStatus && <th className="px-6 py-4 text-right font-semibold">Status</th>}
+            {showActionColumn && (
+              <th className="px-6 py-4 text-right font-semibold">Action</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -136,19 +153,25 @@ export function PaymentsRequestsTable({
 
                 <td className="px-6 py-4 font-medium text-stone-700">{monthLabel}</td>
 
+                <td className="px-6 py-4 text-stone-500">{submittedDateStr}</td>
+
                 <td className="px-6 py-4 font-semibold text-[#302a49]">
                   ₹{Number(req.amount).toLocaleString()}
                 </td>
 
-                <td className="px-6 py-4 text-stone-500">{submittedDateStr}</td>
+                {!hideApprovedBy && (
+                  <td className="px-6 py-4 text-stone-500 text-right">
+                    {approverName}
+                  </td>
+                )}
 
-                <td className="px-6 py-4 font-medium text-stone-700">{approverName}</td>
+                {!hideStatus && (
+                  <td className="px-6 py-4 text-right">
+                    <PaymentStatusBadge status={req.status} />
+                  </td>
+                )}
 
-                <td className="px-6 py-4">
-                  <PaymentStatusBadge status={req.status} />
-                </td>
-
-                {showActionColumn && (
+                {showActionColumn && req.userId !== currentUserId &&(
                   <td className="px-6 py-4">
                     {req.status === PaymentStatus.PENDING && (
                       <div className="flex justify-end gap-2">

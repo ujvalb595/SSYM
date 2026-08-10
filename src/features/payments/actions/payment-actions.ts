@@ -86,36 +86,87 @@ function serializePayment(p: PaymentWithRelations): PaymentItemData {
   };
 }
 
-export async function updatePaymentStatus(paymentId: string, status: PaymentStatus) {
+export async function updatePaymentStatus(
+  paymentId: string,
+  status: PaymentStatus
+) {
   const session = await auth();
+
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
   const role = session.user.role;
+
+  // Only Admin and Super Admin can approve/reject
   if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN) {
-    throw new Error("Permission denied. Only admins can approve or reject payments.");
+    throw new Error(
+      "Permission denied. Only admins can approve or reject payments."
+    );
+  }
+
+  // Get the payment first so we can check who requested it
+  const existingPayment = await prisma.payment.findUnique({
+    where: {
+      id: paymentId,
+    },
+    select: {
+      userId: true,
+      status: true,
+    },
+  });
+
+  if (!existingPayment) {
+    throw new Error("Payment request not found.");
+  }
+
+  // Prevent an admin from approving/rejecting their own request
+  if (existingPayment.userId === session.user.id) {
+    throw new Error(
+      "You cannot approve or reject your own payment request."
+    );
+  }
+
+  // Only pending requests can be processed
+  if (existingPayment.status !== PaymentStatus.PENDING) {
+    throw new Error(
+      "This payment request has already been processed."
+    );
   }
 
   const updated = await prisma.payment.update({
-    where: { id: paymentId },
+    where: {
+      id: paymentId,
+    },
     data: {
       status,
       approvedById: session.user.id,
-      approvedAt: status === PaymentStatus.APPROVED ? new Date() : null,
+      approvedAt:
+        status === PaymentStatus.APPROVED
+          ? new Date()
+          : null,
     },
     include: {
       user: {
-        select: { name: true, mobileNumber: true },
+        select: {
+          name: true,
+          mobileNumber: true,
+        },
       },
       approvedBy: {
-        select: { name: true },
+        select: {
+          name: true,
+        },
       },
     },
   });
 
   revalidatePath("/payments");
-  return { success: true, payment: serializePayment(updated) };
+
+  return {
+    success: true,
+    payment: serializePayment(updated),
+  };
 }
 
 export async function getPaymentsData() {
