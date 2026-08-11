@@ -16,14 +16,18 @@ export interface ExpenseItemData {
   createdByRole: Role;
 }
 
-export function ExpensesList({
-  expenses,
-  currentUserRole,
-}: {
+interface ExpensesListProps {
   expenses: ExpenseItemData[];
   currentUserId: string;
   currentUserRole: Role;
-}) {
+  canManageExpenses: boolean;
+}
+
+export function ExpensesList({
+  expenses,
+  currentUserRole,
+  canManageExpenses
+}: ExpensesListProps) {
   const [search, setSearch] = useState("");
 
   const filteredExpenses = expenses.filter(

@@ -72,9 +72,9 @@ export default async function MemberDetailPage({
 
   const roleText =
     user.role === "SUPER_ADMIN"
-      ? "Super Administrator"
+      ? "Super Admin"
       : user.role === "ADMIN"
-      ? "Administrator"
+      ? "Admin"
       : "Mandal Member";
 
   return (

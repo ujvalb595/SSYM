@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Providers } from "@/component/providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
         <Toaster position="top-right" richColors />
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

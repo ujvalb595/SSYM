@@ -4,7 +4,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { AddExpensesDialog } from "@/features/expenses/components/add-expenses-dialog";
-import { ExpensesList, ExpenseItemData } from "@/features/expenses/components/expenses-list";
+import {
+  ExpensesList,
+  ExpenseItemData,
+} from "@/features/expenses/components/expenses-list";
 
 interface ExpenseQueryResult {
   id: string;
@@ -23,42 +26,27 @@ interface ExpenseQueryResult {
 
 export default async function ExpensesPage() {
   const session = await auth();
-  if (!session?.user || session.user.isActive === false) redirect("/login");
+
+  if (!session?.user || session.user.isActive === false) {
+    redirect("/login");
+  }
 
   let expenseItems: ExpenseItemData[] = [];
 
   try {
-    let dbExpenses: ExpenseQueryResult[] = [];
-
-    if (prisma.expense) {
-      dbExpenses = (await prisma.expense.findMany({
-        include: {
-          createdBy: {
-            select: {
-              name: true,
-              role: true,
-            },
+    const dbExpenses = await prisma.expense.findMany({
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            role: true,
           },
         },
-        orderBy: { date: "desc" },
-      })) as unknown as ExpenseQueryResult[];
-    } else {
-      // Direct raw query fallback if Prisma Client was cached before model generation
-      dbExpenses = (await prisma.$queryRawUnsafe(`
-        SELECT 
-          e.id, 
-          e.title, 
-          e.description, 
-          e.amount, 
-          e.date, 
-          e."createdById", 
-          u.name AS "createdByName", 
-          u.role AS "createdByRole"
-        FROM "Expense" e
-        LEFT JOIN "User" u ON e."createdById" = u.id
-        ORDER BY e.date DESC
-      `)) as ExpenseQueryResult[];
-    }
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
 
     expenseItems = dbExpenses.map((e) => {
       const formattedDate = e.date
@@ -76,14 +64,19 @@ export default async function ExpensesPage() {
         amount: Number(e.amount),
         date: formattedDate,
         createdById: e.createdById,
-        createdByName: e.createdBy?.name || e.createdByName || "Unknown User",
-        createdByRole: e.createdBy?.role || e.createdByRole || Role.USER,
+        createdByName: e.createdBy?.name || "Unknown User",
+        createdByRole: e.createdBy?.role || Role.USER,
       };
     });
   } catch (error) {
     console.error("Error fetching expenses from database:", error);
     expenseItems = [];
   }
+
+  // Only ADMIN and SUPER_ADMIN can manage expenses
+  const canManageExpenses =
+    session.user.role === Role.ADMIN ||
+    session.user.role === Role.SUPER_ADMIN;
 
   return (
     <DashboardShell section="Management" title="Expenses">
@@ -94,18 +87,22 @@ export default async function ExpensesPage() {
             <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">
               Expenses
             </h2>
+
             <p className="mt-1 text-sm text-stone-500">
               View and manage mandal expenses and expenditure records.
             </p>
           </div>
-          <AddExpensesDialog />
+
+          {/* Only ADMIN and SUPER_ADMIN */}
+          {canManageExpenses && <AddExpensesDialog />}
         </div>
 
-        {/* Dynamic Expenses Display */}
+        {/* Expenses Table */}
         <ExpensesList
           expenses={expenseItems}
           currentUserId={session.user.id}
           currentUserRole={session.user.role}
+          canManageExpenses={canManageExpenses}
         />
       </main>
     </DashboardShell>
