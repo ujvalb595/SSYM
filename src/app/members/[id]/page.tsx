@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Calendar, Phone, Shield, Droplet } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
@@ -61,14 +61,16 @@ export default async function MemberDetailPage({
     .toUpperCase() || "MB";
 
   const rawBirthDate = user.birthDate
-    ? new Date(user.birthDate).toISOString().split("T")[0]
-    : undefined;
+  ? new Date(user.birthDate).toISOString().split("T")[0]
+  : undefined;
 
-  const joinedDate = new Date(user.createdAt).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-
+const birthDateText = user.birthDate
+  ? new Date(user.birthDate).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    })
+  : "Not provided";
 
   const roleText =
     user.role === "SUPER_ADMIN"
@@ -76,6 +78,11 @@ export default async function MemberDetailPage({
       : user.role === "ADMIN"
       ? "Admin"
       : "Mandal Member";
+
+  const bloodGroupText =
+  user.bloodGroup
+    ?.replace("_POSITIVE", "+")
+    .replace("_NEGATIVE", "-") || "Not provided";
 
   return (
     <DashboardShell section="Management" title={`Member Profile - ${user.name}`}>
@@ -102,34 +109,61 @@ export default async function MemberDetailPage({
           </div>
           <div className="p-6">
             {/* Overview Quick Stats */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Mobile Number */}
               <div className="flex items-center gap-3 rounded-xl bg-[#faf9ff] p-4">
                 <span className="text-[#7657f6]">
                   <Phone size={18} />
                 </span>
+
                 <div>
                   <p className="text-xs font-medium text-stone-500">Mobile Number</p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">{user.mobileNumber}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">
+                    {user.mobileNumber || "Not provided"}
+                  </p>
                 </div>
               </div>
 
+              {/* Birthdate */}
               <div className="flex items-center gap-3 rounded-xl bg-[#faf9ff] p-4">
                 <span className="text-[#7657f6]">
                   <Calendar size={18} />
                 </span>
+
                 <div>
-                  <p className="text-xs font-medium text-stone-500">Joined Mandal</p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">{joinedDate}</p>
+                  <p className="text-xs font-medium text-stone-500">Birthdate</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">
+                    {birthDateText}
+                  </p>
                 </div>
               </div>
 
+              {/* Blood Group */}
+              <div className="flex items-center gap-3 rounded-xl bg-[#faf9ff] p-4">
+                <span className="text-[#7657f6]">
+                  <Droplet size={18} />
+                </span>
+
+                <div>
+                  <p className="text-xs font-medium text-stone-500">Blood Group</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">
+                    {bloodGroupText}
+                  </p>
+                </div>
+              </div>
+
+              {/* Role */}
               <div className="flex items-center gap-3 rounded-xl bg-[#faf9ff] p-4">
                 <span className="text-[#7657f6]">
                   <Shield size={18} />
                 </span>
+
                 <div>
                   <p className="text-xs font-medium text-stone-500">Role</p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">{roleText}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[#24203a]">
+                    {roleText}
+                  </p>
                 </div>
               </div>
             </div>

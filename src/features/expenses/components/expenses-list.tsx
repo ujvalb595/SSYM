@@ -48,18 +48,6 @@ export function ExpensesList({
       {/* Metric Cards Bar */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-violet-100 text-[#7257f4]">
-            <ChartNoAxesCombined size={24} />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">
-              Total Expenses Logged
-            </p>
-            <h4 className="text-2xl font-extrabold text-[#24203a]">{expenses.length} Records</h4>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/80 to-purple-50/50 p-5 shadow-sm">
           <span className="flex size-12 items-center justify-center rounded-xl bg-[#7257f4] text-white shadow-md shadow-violet-200">
             <IndianRupee size={24} />
           </span>
@@ -72,6 +60,18 @@ export function ExpensesList({
             </h4>
           </div>
         </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <span className="flex size-12 items-center justify-center rounded-xl bg-violet-100 text-[#7257f4]">
+            <ChartNoAxesCombined size={24} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+              Total Expenses Logged
+            </p>
+            <h4 className="text-2xl font-extrabold text-[#24203a]">{expenses.length} Records</h4>
+          </div>
+        </div>        
       </div>
 
       {/* Main Expenses Table Card */}
