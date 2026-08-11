@@ -3,8 +3,9 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-const editExpenseSchema = z.object({
-  title: z.string().trim().min(2, "Title must be at least 2 characters").max(150),
+const editDonationSchema = z.object({
+  donorName: z.string().trim().min(2, "Donor name must be at least 2 characters").max(150),
+  title: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   amount: z.coerce.number().positive("Amount must be a positive number"),
   date: z.coerce.date(),
@@ -22,36 +23,37 @@ export async function PATCH(
   const isAdmin = [Role.SUPER_ADMIN, Role.ADMIN].includes(session.user.role);
   if (!isAdmin) {
     return Response.json(
-      { message: "Permission denied. Only Admins and Super Admins can edit expenses." },
+      { message: "Permission denied. Only Admins and Super Admins can edit donations." },
       { status: 403 }
     );
   }
 
   const { id } = await params;
   if (!id) {
-    return Response.json({ message: "Expense ID is required" }, { status: 400 });
+    return Response.json({ message: "Donation ID is required" }, { status: 400 });
   }
 
   const body = await request.json();
-  const parsed = editExpenseSchema.safeParse(body);
+  const parsed = editDonationSchema.safeParse(body);
 
   if (!parsed.success) {
     return Response.json(
-      { message: parsed.error.issues[0]?.message ?? "Invalid expense data." },
+      { message: parsed.error.issues[0]?.message ?? "Invalid donation data." },
       { status: 400 }
     );
   }
 
-  const { title, description, amount, date } = parsed.data;
+  const { donorName, title, description, amount, date } = parsed.data;
 
   try {
-    let updatedExpense: Record<string, unknown>;
+    let updatedDonation: Record<string, unknown>;
 
-    if (prisma.expense) {
-      updatedExpense = (await prisma.expense.update({
+    if (prisma.donation) {
+      updatedDonation = (await prisma.donation.update({
         where: { id },
         data: {
-          title,
+          donorName,
+          title: title || null,
           description: description || null,
           amount,
           date,
@@ -67,14 +69,15 @@ export async function PATCH(
       })) as unknown as Record<string, unknown>;
     } else {
       await prisma.$executeRawUnsafe(
-        `UPDATE "Expense" SET title = $1, description = $2, amount = $3, date = $4, "updatedAt" = NOW() WHERE id = $5`,
-        title,
+        `UPDATE "Donation" SET "donorName" = $1, title = $2, description = $3, amount = $4, date = $5, "updatedAt" = NOW() WHERE id = $6`,
+        donorName,
+        title || null,
         description || null,
         amount,
         new Date(date),
         id
       );
-      updatedExpense = { id, title, description, amount, date };
+      updatedDonation = { id, donorName, title, description, amount, date };
     }
 
     try {
@@ -82,20 +85,20 @@ export async function PATCH(
         data: {
           userId: session.user.id,
           action: "UPDATE",
-          entity: "Expense",
+          entity: "Donation",
           entityId: id,
-          metadata: { title, amount },
+          metadata: { donorName, title, amount },
         },
       });
     } catch {
       // Ignore audit log error
     }
 
-    return Response.json({ expense: updatedExpense });
+    return Response.json({ donation: updatedDonation });
   } catch (error) {
-    console.error("Error updating expense:", error);
+    console.error("Error updating donation:", error);
     return Response.json(
-      { message: "Unable to update expense. Please try again." },
+      { message: "Unable to update donation. Please try again." },
       { status: 500 }
     );
   }
@@ -113,21 +116,21 @@ export async function DELETE(
   const isAdmin = [Role.SUPER_ADMIN, Role.ADMIN].includes(session.user.role);
   if (!isAdmin) {
     return Response.json(
-      { message: "Permission denied. Only Admins and Super Admins can delete expenses." },
+      { message: "Permission denied. Only Admins and Super Admins can delete donations." },
       { status: 403 }
     );
   }
 
   const { id } = await params;
   if (!id) {
-    return Response.json({ message: "Expense ID is required" }, { status: 400 });
+    return Response.json({ message: "Donation ID is required" }, { status: 400 });
   }
 
   try {
-    if (prisma.expense) {
-      await prisma.expense.delete({ where: { id } });
+    if (prisma.donation) {
+      await prisma.donation.delete({ where: { id } });
     } else {
-      await prisma.$executeRawUnsafe(`DELETE FROM "Expense" WHERE id = $1`, id);
+      await prisma.$executeRawUnsafe(`DELETE FROM "Donation" WHERE id = $1`, id);
     }
 
     try {
@@ -135,7 +138,7 @@ export async function DELETE(
         data: {
           userId: session.user.id,
           action: "DELETE",
-          entity: "Expense",
+          entity: "Donation",
           entityId: id,
         },
       });
@@ -145,9 +148,9 @@ export async function DELETE(
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error("Error deleting expense:", error);
+    console.error("Error deleting donation:", error);
     return Response.json(
-      { message: "Unable to delete expense. Please try again." },
+      { message: "Unable to delete donation. Please try again." },
       { status: 500 }
     );
   }

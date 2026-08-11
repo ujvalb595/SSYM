@@ -9,21 +9,6 @@ import {
   ExpenseItemData,
 } from "@/features/expenses/components/expenses-list";
 
-interface ExpenseQueryResult {
-  id: string;
-  title: string;
-  description?: string | null;
-  amount: number | string;
-  date?: string | Date | null;
-  createdById: string;
-  createdByName?: string;
-  createdByRole?: Role;
-  createdBy?: {
-    name: string;
-    role: Role;
-  } | null;
-}
-
 export default async function ExpensesPage() {
   const session = await auth();
 
