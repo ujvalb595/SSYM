@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { Bell, Menu, Search } from "lucide-react";
 import { Sidebar } from "@/features/dashboard/components/sidebar";
@@ -5,13 +8,21 @@ import { DashboardContent } from "@/features/dashboard/components/dashboard-cont
 import { AccountMenu } from "@/features/dashboard/components/account-menu";
 
 export function DashboardShell({ children, section = "Overview", title = "Good morning, Super Admin" }: { children?: ReactNode; section?: string; title?: string }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-transparent text-[#24203a]">
-      <Sidebar />
+      <Sidebar mobileOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
       <main className="min-h-screen lg:pl-72">
         <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-[#ebe7f6] bg-white/70 px-5 backdrop-blur-xl md:px-9">
           <div className="flex items-center gap-3">
-            <button aria-label="Open navigation" className="rounded-lg p-2 text-stone-600 hover:bg-white lg:hidden"><Menu size={21} /></button>
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open navigation"
+              className="rounded-lg p-2 text-stone-600 hover:bg-white lg:hidden"
+            >
+              <Menu size={21} />
+            </button>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7657f6]">{section}</p>
               <h1 className="text-lg font-bold">{title}</h1>

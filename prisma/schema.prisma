@@ -73,6 +73,7 @@ model User {
   notifications      Notification[]
   auditLogs          AuditLog[]
   expenses           Expense[]
+  donations          Donation[]           @relation("CreatedDonations")
 }
 
 model Expense {
@@ -85,6 +86,21 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([date])
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  donorName   String
+  title       String?
+  description String?
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   User     @relation("CreatedDonations", fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([date])
 }

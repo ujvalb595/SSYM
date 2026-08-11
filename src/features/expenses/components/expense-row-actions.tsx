@@ -8,7 +8,6 @@ import { MoreHorizontal, Trash2 } from "lucide-react";
 
 export function ExpenseRowActions({
   expense,
-  currentUserId,
   currentUserRole,
   onDeleteSuccess,
 }: {
@@ -17,7 +16,7 @@ export function ExpenseRowActions({
     title: string;
     createdById: string;
   };
-  currentUserId: string;
+  currentUserId?: string;
   currentUserRole: Role;
   onDeleteSuccess?: (id: string) => void;
 }) {
@@ -32,9 +31,7 @@ export function ExpenseRowActions({
   }, []);
 
   const isAdmin = currentUserRole === Role.SUPER_ADMIN || currentUserRole === Role.ADMIN;
-  const isCreator = currentUserId === expense.createdById;
-  const isSeed = expense.id.startsWith("exp-") || expense.createdById.startsWith("seed-");
-  const canDelete = isAdmin || isCreator || isSeed;
+  const canDelete = isAdmin;
 
   if (!canDelete) return null;
 

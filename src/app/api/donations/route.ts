@@ -3,8 +3,9 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-const expenseSchema = z.object({
-  title: z.string().trim().min(2, "Title must be at least 2 characters").max(150),
+const donationSchema = z.object({
+  donorName: z.string().trim().min(2, "Donor name must be at least 2 characters").max(150),
+  title: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   amount: z.coerce.number().positive("Amount must be a positive number"),
   date: z.coerce.date(),
@@ -19,30 +20,31 @@ export async function POST(request: Request) {
   const isAdmin = [Role.SUPER_ADMIN, Role.ADMIN].includes(session.user.role);
   if (!isAdmin) {
     return Response.json(
-      { message: "Permission denied. Only Admins and Super Admins can add expenses." },
+      { message: "Permission denied. Only Admins and Super Admins can add donations." },
       { status: 403 }
     );
   }
 
   const body = await request.json();
-  const parsed = expenseSchema.safeParse(body);
+  const parsed = donationSchema.safeParse(body);
 
   if (!parsed.success) {
     return Response.json(
-      { message: parsed.error.issues[0]?.message ?? "Invalid expense data." },
+      { message: parsed.error.issues[0]?.message ?? "Invalid donation data." },
       { status: 400 }
     );
   }
 
-  const { title, description, amount, date } = parsed.data;
+  const { donorName, title, description, amount, date } = parsed.data;
 
   try {
-    let expense: Record<string, unknown>;
+    let donation: Record<string, unknown>;
 
-    if (prisma.expense) {
-      expense = (await prisma.expense.create({
+    if (prisma.donation) {
+      donation = (await prisma.donation.create({
         data: {
-          title,
+          donorName,
+          title: title || null,
           description: description || null,
           amount,
           date,
@@ -58,18 +60,19 @@ export async function POST(request: Request) {
         },
       })) as unknown as Record<string, unknown>;
     } else {
-      const newId = `exp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const newId = `don_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       await prisma.$executeRawUnsafe(
-        `INSERT INTO "Expense" ("id", "title", "description", "amount", "date", "createdById", "createdAt", "updatedAt") 
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        `INSERT INTO "Donation" ("id", "donorName", "title", "description", "amount", "date", "createdById", "createdAt", "updatedAt") 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
         newId,
-        title,
+        donorName,
+        title || null,
         description || null,
         amount,
         new Date(date),
         session.user.id
       );
-      expense = { id: newId, title, amount };
+      donation = { id: newId, donorName, title, amount };
     }
 
     try {
@@ -77,20 +80,20 @@ export async function POST(request: Request) {
         data: {
           userId: session.user.id,
           action: "CREATE",
-          entity: "Expense",
-          entityId: String(expense.id || ""),
-          metadata: { title, amount },
+          entity: "Donation",
+          entityId: String(donation.id || ""),
+          metadata: { donorName, title, amount },
         },
       });
     } catch {
-      // Ignore audit log error if any
+      // Ignore audit log error
     }
 
-    return Response.json({ expense }, { status: 201 });
+    return Response.json({ donation }, { status: 201 });
   } catch (error) {
-    console.error("Error creating expense:", error);
+    console.error("Error creating donation:", error);
     return Response.json(
-      { message: "Unable to add expense. Please try again." },
+      { message: "Unable to add donation. Please try again." },
       { status: 500 }
     );
   }
@@ -103,9 +106,9 @@ export async function GET() {
   }
 
   try {
-    let expenses: Record<string, unknown>[] = [];
-    if (prisma.expense) {
-      expenses = (await prisma.expense.findMany({
+    let donations: Record<string, unknown>[] = [];
+    if (prisma.donation) {
+      donations = (await prisma.donation.findMany({
         include: {
           createdBy: {
             select: {
@@ -117,27 +120,28 @@ export async function GET() {
         orderBy: { date: "desc" },
       })) as unknown as Record<string, unknown>[];
     } else {
-      expenses = (await prisma.$queryRawUnsafe(`
+      donations = (await prisma.$queryRawUnsafe(`
         SELECT 
-          e.id, 
-          e.title, 
-          e.description, 
-          e.amount, 
-          e.date, 
-          e."createdById", 
+          d.id, 
+          d."donorName", 
+          d.title, 
+          d.description, 
+          d.amount, 
+          d.date, 
+          d."createdById", 
           u.name AS "createdByName", 
           u.role AS "createdByRole"
-        FROM "Expense" e
-        LEFT JOIN "User" u ON e."createdById" = u.id
-        ORDER BY e.date DESC
+        FROM "Donation" d
+        LEFT JOIN "User" u ON d."createdById" = u.id
+        ORDER BY d.date DESC
       `)) as Record<string, unknown>[];
     }
 
-    return Response.json({ expenses });
+    return Response.json({ donations });
   } catch (error) {
-    console.error("Error fetching expenses:", error);
+    console.error("Error fetching donations:", error);
     return Response.json(
-      { message: "Failed to fetch expenses" },
+      { message: "Failed to fetch donations" },
       { status: 500 }
     );
   }
