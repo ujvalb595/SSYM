@@ -29,17 +29,62 @@ interface MemberRow {
 }
 
 const seedMembers: MemberRow[] = [
-  { id: "m1", name: "Aarav Patel", mobile: "9876543210", birthDate: "14 Feb 1996", bloodGroup: "B+", initials: "AP" },
-  { id: "m2", name: "Diya Sharma", mobile: "9825012546", birthDate: "28 Jul 1999", bloodGroup: "O+", initials: "DS" },
-  { id: "m3", name: "Rohan Mehta", mobile: "9988122045", birthDate: "06 Nov 1994", bloodGroup: "A+", initials: "RM" },
-  { id: "m4", name: "Kavya Desai", mobile: "9913854720", birthDate: "19 Mar 2000", bloodGroup: "AB+", initials: "KD" },
-  { id: "m5", name: "Ishaan Joshi", mobile: "9099015236", birthDate: "02 Jan 1997", bloodGroup: "O-", initials: "IJ" },
-  { id: "m6", name: "Anaya Shah", mobile: "9725588041", birthDate: "11 Sep 1998", bloodGroup: "B+", initials: "AS" },
+  {
+    id: "m1",
+    name: "Aarav Patel",
+    mobile: "9876543210",
+    birthDate: "14 Feb 1996",
+    bloodGroup: "B+",
+    initials: "AP",
+  },
+  {
+    id: "m2",
+    name: "Diya Sharma",
+    mobile: "9825012546",
+    birthDate: "28 Jul 1999",
+    bloodGroup: "O+",
+    initials: "DS",
+  },
+  {
+    id: "m3",
+    name: "Rohan Mehta",
+    mobile: "9988122045",
+    birthDate: "06 Nov 1994",
+    bloodGroup: "A+",
+    initials: "RM",
+  },
+  {
+    id: "m4",
+    name: "Kavya Desai",
+    mobile: "9913854720",
+    birthDate: "19 Mar 2000",
+    bloodGroup: "AB+",
+    initials: "KD",
+  },
+  {
+    id: "m5",
+    name: "Ishaan Joshi",
+    mobile: "9099015236",
+    birthDate: "02 Jan 1997",
+    bloodGroup: "O-",
+    initials: "IJ",
+  },
+  {
+    id: "m6",
+    name: "Anaya Shah",
+    mobile: "9725588041",
+    birthDate: "11 Sep 1998",
+    bloodGroup: "B+",
+    initials: "AS",
+  },
 ];
 
 export default async function MembersPage() {
   const session = await auth();
   if (!session?.user || session.user.isActive === false) redirect("/login");
+
+  const userRole = session.user.role;
+  const canManageMembers = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
 
   let members: MemberRow[] = [];
   let totalCount = 0;
@@ -53,22 +98,29 @@ export default async function MembersPage() {
       totalCount = users.length;
 
       members = users.map((u) => {
-        const initials = u.name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .substring(0, 2)
-          .toUpperCase() || "MB";
+        const initials =
+          u.name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .substring(0, 2)
+            .toUpperCase() || "MB";
 
         const birthDate = u.birthDate
-          ? new Date(u.birthDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+          ? new Date(u.birthDate).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
           : "N/A";
 
         const rawBirthDate = u.birthDate
           ? new Date(u.birthDate).toISOString().split("T")[0]
           : undefined;
 
-        const blood = u.bloodGroup ? bloodGroupLabel[u.bloodGroup] || u.bloodGroup : "O+";
+        const blood = u.bloodGroup
+          ? bloodGroupLabel[u.bloodGroup] || u.bloodGroup
+          : "O+";
 
         return {
           id: u.id,
@@ -96,12 +148,14 @@ export default async function MembersPage() {
       <main className="mx-auto max-w-7xl p-5 md:p-9">
         <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">Members</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">
+              Members
+            </h2>
             <p className="mt-1 text-sm text-stone-500">
               View and manage your mandal member directory.
             </p>
           </div>
-          <AddMemberDialog />
+          {canManageMembers && <AddMemberDialog />}
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
@@ -112,7 +166,9 @@ export default async function MembersPage() {
               </span>
               <div>
                 <h3 className="font-bold text-[#24203a]">All Members</h3>
-                <p className="text-sm text-stone-500">{totalCount} registered members</p>
+                <p className="text-sm text-stone-500">
+                  {totalCount} registered members
+                </p>
               </div>
             </div>
             <label className="relative block">
@@ -135,7 +191,11 @@ export default async function MembersPage() {
                   <th className="px-6 py-4 font-semibold">Mobile No.</th>
                   <th className="px-6 py-4 font-semibold">Birth Date</th>
                   <th className="px-6 py-4 font-semibold">Blood Group</th>
-                  <th className="px-6 py-4 text-right font-semibold">Action</th>
+                  {canManageMembers && (
+                    <th className="px-6 py-4 text-right font-semibold">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -161,14 +221,16 @@ export default async function MembersPage() {
                         {m.bloodGroup}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <MemberActions
-                        member={{
-                          id: m.id,
-                          name: m.name,
-                        }}
-                      />
-                    </td>
+                    {canManageMembers && (
+                      <td className="px-6 py-4 text-right">
+                        <MemberActions
+                          member={{
+                            id: m.id,
+                            name: m.name,
+                          }}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -176,7 +238,9 @@ export default async function MembersPage() {
           </div>
 
           <div className="flex items-center justify-between border-t border-stone-100 px-6 py-4 text-sm text-stone-500">
-            <span>Showing 1–{members.length} of {totalCount} members</span>
+            <span>
+              Showing 1–{members.length} of {totalCount} members
+            </span>
             <div className="flex gap-2">
               <button className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50">
                 Previous
