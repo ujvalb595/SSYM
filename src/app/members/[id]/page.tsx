@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Role } from "@prisma/client";
 import { ArrowLeft, Calendar, Phone, Shield, Droplet } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { MemberProfileForm } from "@/features/members/components/member-profile-form";
+import { MemberPaymentStatusCard } from "@/features/members/components/member-payment-status-card";
 
 export default async function MemberDetailPage({
   params,
@@ -53,6 +55,32 @@ export default async function MemberDetailPage({
     );
   }
 
+  // Payment status card visibility: Super Admin, Admin, or User viewing their OWN profile
+  const isSuperAdmin = session.user.role === Role.SUPER_ADMIN;
+  const isAdmin = session.user.role === Role.ADMIN;
+  const isSelf = session.user.id === user.id;
+
+  const canViewPaymentStatus = isSuperAdmin || isAdmin || isSelf;
+
+  const userPayments = canViewPaymentStatus
+    ? await prisma.payment.findMany({
+        where: { userId: user.id },
+        select: {
+          month: true,
+          year: true,
+          amount: true,
+          status: true,
+        },
+      })
+    : [];
+
+  const formattedPayments = userPayments.map((p) => ({
+    month: p.month,
+    year: p.year,
+    amount: Number(p.amount),
+    status: p.status,
+  }));
+
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -61,16 +89,16 @@ export default async function MemberDetailPage({
     .toUpperCase() || "MB";
 
   const rawBirthDate = user.birthDate
-  ? new Date(user.birthDate).toISOString().split("T")[0]
-  : undefined;
+    ? new Date(user.birthDate).toISOString().split("T")[0]
+    : undefined;
 
-const birthDateText = user.birthDate
-  ? new Date(user.birthDate).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    })
-  : "Not provided";
+  const birthDateText = user.birthDate
+    ? new Date(user.birthDate).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : "Not provided";
 
   const roleText =
     user.role === "SUPER_ADMIN"
@@ -80,9 +108,9 @@ const birthDateText = user.birthDate
       : "Mandal Member";
 
   const bloodGroupText =
-  user.bloodGroup
-    ?.replace("_POSITIVE", "+")
-    .replace("_NEGATIVE", "-") || "Not provided";
+    user.bloodGroup
+      ?.replace("_POSITIVE", "+")
+      .replace("_NEGATIVE", "-") || "Not provided";
 
   return (
     <DashboardShell section="Management" title={`Member Profile - ${user.name}`}>
@@ -109,7 +137,6 @@ const birthDateText = user.birthDate
           </div>
           <div className="p-6">
             {/* Overview Quick Stats */}
-            
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Mobile Number */}
               <div className="flex items-center gap-3 rounded-xl bg-[#faf9ff] p-4">
@@ -169,6 +196,11 @@ const birthDateText = user.birthDate
             </div>
           </div>
         </section>
+
+        {/* Month-Wise Payment Status Box (Visible to Super Admin, Admin, or User viewing their OWN profile) */}
+        {canViewPaymentStatus && (
+          <MemberPaymentStatusCard payments={formattedPayments} />
+        )}
 
         {/* Member Profile Form / Edit Card */}
         <MemberProfileForm

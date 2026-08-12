@@ -1,14 +1,38 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff, HelpCircle, KeyRound, X } from "lucide-react";
+import { Eye, EyeOff, HelpCircle, KeyRound, PhoneCall, X } from "lucide-react";
+
+interface AdminContact {
+  id: string;
+  name: string;
+  mobileNumber: string;
+  role: string;
+}
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [admins, setAdmins] = useState<AdminContact[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+
+  useEffect(() => {
+    if (forgotModalOpen && admins.length === 0) {
+      setAdminsLoading(true);
+      fetch("/api/public/admins")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.admins && Array.isArray(data.admins)) {
+            setAdmins(data.admins);
+          }
+        })
+        .catch((err) => console.error("Error fetching admins:", err))
+        .finally(() => setAdminsLoading(false));
+    }
+  }, [forgotModalOpen, admins.length]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,7 +147,7 @@ export default function LoginPage() {
       {/* Forgot Password Modal */}
       {forgotModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white bg-white p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-stone-100 pb-4">
               <div className="flex items-center gap-3">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-violet-100 text-[#7657f6]">
@@ -131,7 +155,7 @@ export default function LoginPage() {
                 </span>
                 <div>
                   <h3 className="text-lg font-bold text-[#24203a]">Reset Password</h3>
-                  <p className="text-xs text-stone-500">Account recovery instructions</p>
+                  <p className="text-xs text-stone-500">Contact an admin to recover your account</p>
                 </div>
               </div>
               <button
@@ -142,29 +166,67 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <div className="mt-5 space-y-4 text-sm text-stone-600 leading-relaxed">
-              <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4">
-                <div className="flex items-start gap-2 text-[#7657f6] font-bold text-xs uppercase tracking-wider mb-1">
-                  <HelpCircle size={16} className="mt-0.5" />
+            <div className="space-y-4 text-sm text-stone-600 leading-relaxed">
+              <div className="rounded-xl border border-violet-100 bg-violet-50/60 p-3.5">
+                <div className="flex items-center gap-2 text-[#7657f6] font-bold text-xs uppercase tracking-wider mb-1">
+                  <HelpCircle size={15} />
                   <span>Contact Mandal Admin</span>
                 </div>
                 <p className="text-xs text-stone-600">
-                  Password resets are managed securely by your SSYM Mandal Administrators.
+                  Password resets are managed securely by your SSYM Mandal Administrators. Click a mobile number below to call directly.
                 </p>
               </div>
 
-              <ol className="list-decimal list-inside space-y-2 text-xs text-stone-600">
-                <li>Contact a Mandal Admin or Super Admin with your registered 10-digit mobile number.</li>
-                <li>The Admin will reset your password from their Member Directory dashboard.</li>
-                <li>Once reset, sign in using your new credentials.</li>
-              </ol>
+              {/* Admin Contact List */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                  Available Administrators
+                </p>
+                {adminsLoading ? (
+                  <div className="py-4 text-center text-xs text-stone-400">Loading admin contacts...</div>
+                ) : admins.length > 0 ? (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {admins.map((admin) => (
+                      <div
+                        key={admin.id}
+                        className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50/50 p-3 transition hover:bg-violet-50/50 hover:border-violet-200"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-[#7657f6] text-xs font-bold">
+                            {admin.name.charAt(0).toUpperCase()}
+                          </span>
+                          <div>
+                            <p className="text-xs font-bold text-[#24203a]">{admin.name}</p>
+                            <span className="inline-block text-[10px] font-semibold text-violet-600 bg-violet-100/70 px-1.5 py-0.5 rounded">
+                              {admin.role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <a
+                          href={`tel:${admin.mobileNumber}`}
+                          title={`Call ${admin.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
+                        >
+                          <PhoneCall size={13} />
+                          <span>{admin.mobileNumber}</span>
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-stone-200 p-3 text-center text-xs text-stone-500">
+                    No administrators listed. Please contact your mandal representative.
+                  </div>
+                )}
+              </div>
 
               <div className="pt-3 flex justify-end border-t border-stone-100">
                 <button
                   onClick={() => setForgotModalOpen(false)}
-                  className="rounded-xl bg-[#7657f6] px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-[#6042e6]"
+                  className="rounded-xl bg-[#7657f6] px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-[#6042e6]"
                 >
-                  Understood
+                  Close
                 </button>
               </div>
             </div>
