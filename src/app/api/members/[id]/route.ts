@@ -19,12 +19,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user.isActive || ![Role.SUPER_ADMIN, Role.ADMIN].includes(session.user.role)) {
+  if (!session?.user?.isActive) {
     return Response.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
   if (!id) return Response.json({ message: "Member ID is required" }, { status: 400 });
+
+  const isSelf = session.user.id === id;
+  const isAdminOrSuperAdmin = [Role.SUPER_ADMIN, Role.ADMIN].includes(session.user.role);
+
+  if (!isAdminOrSuperAdmin && !isSelf) {
+    return Response.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await request.json();
   const parsed = updateMemberSchema.safeParse(body);
@@ -61,12 +68,14 @@ export async function PATCH(
       birthDate: birthDate ? new Date(birthDate) : null,
     };
 
-    if (role) {
-      updateData.role = role;
-    }
+    if (isAdminOrSuperAdmin) {
+      if (role) {
+        updateData.role = role;
+      }
 
-    if (typeof isActive === "boolean") {
-      updateData.isActive = isActive;
+      if (typeof isActive === "boolean") {
+        updateData.isActive = isActive;
+      }
     }
 
     if (password && password.length >= 8) {

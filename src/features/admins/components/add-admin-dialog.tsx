@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
-import { Droplet, LockKeyhole, Phone, Plus, ShieldAlert, UserRound, X } from "lucide-react";
+import { Droplet, Eye, EyeOff, LockKeyhole, Phone, Plus, ShieldAlert, UserRound, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -26,6 +26,7 @@ const roleOptions = [
 
 export function AddAdminDialog() {
   const [open, setOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -201,12 +202,20 @@ export function AddAdminDialog() {
                         <LockKeyhole size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
                         <input
                           name="password"
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
                           minLength={8}
                           placeholder="At least 8 characters"
-                          className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                          className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-9 text-sm outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label="Toggle password visibility"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                     </div>
 

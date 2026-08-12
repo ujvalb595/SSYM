@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Droplet, LockKeyhole, Phone, Plus, UserRound, X } from "lucide-react";
+import { CalendarDays, Droplet, Eye, EyeOff, LockKeyhole, Phone, Plus, UserRound, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -20,6 +20,7 @@ const bloodGroupOptions = [
 
 export function AddMemberDialog() {
   const [open, setOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -128,7 +129,24 @@ export function AddMemberDialog() {
               </Field>
 
               <Field label="Password" icon={<LockKeyhole size={17} />}>
-                <input required name="password" type="password" minLength={8} placeholder="Set a secure password" className="field" />
+                <div className="relative w-full">
+                  <input
+                    required
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    minLength={8}
+                    placeholder="Set a secure password"
+                    className="field pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label="Toggle password visibility"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
               </Field>
 
               {error && (

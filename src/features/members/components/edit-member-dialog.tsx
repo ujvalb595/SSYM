@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, LockKeyhole, Pencil, Phone, UserRound, X } from "lucide-react";
+import { Calendar, Eye, EyeOff, LockKeyhole, Pencil, Phone, UserRound, X } from "lucide-react";
 
 export interface MemberData {
   id: string;
@@ -25,6 +25,7 @@ const bloodGroupOptions = [
 
 export function EditMemberDialog({ member }: { member: MemberData }) {
   const [open, setOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -188,11 +189,19 @@ export function EditMemberDialog({ member }: { member: MemberData }) {
                   <LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" size={17} />
                   <input
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     minLength={8}
                     placeholder="Leave blank to keep current password"
-                    className="w-full rounded-xl border border-[#e8e3f2] py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-xl border border-[#e8e3f2] py-2.5 pl-10 pr-10 text-sm outline-none transition focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label="Toggle password visibility"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
                 </div>
               </div>
 
