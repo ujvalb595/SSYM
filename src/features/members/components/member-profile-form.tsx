@@ -226,38 +226,21 @@ export function MemberProfileForm({
               <Shield className="text-[#7257f4]" size={20} />
               <h3 className="text-lg font-bold text-[#24203a]">Role & Access Control</h3>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-                  User Role
-                </label>
-                <CustomSelect
-                  name="role"
-                  defaultValue={user.role}
-                  disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
-                  options={[
-                    { label: "Member (User)", value: Role.USER },
-                    { label: "Admin", value: Role.ADMIN },
-                    ...(isSuperAdmin ? [{ label: "Super Admin", value: Role.SUPER_ADMIN }] : []),
-                  ]}
-                  icon={<Shield size={18} />}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-                  Account Status
-                </label>
-                <CustomSelect
-                  name="isActive"
-                  defaultValue={user.isActive ? "true" : "false"}
-                  disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
-                  options={[
-                    { label: "Active Account", value: "true" },
-                    { label: "Inactive Account", value: "false" },
-                  ]}
-                  icon={<CheckCircle2 size={18} />}
-                />
-              </div>
+            <div className="max-w-md">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                User Role
+              </label>
+              <CustomSelect
+                name="role"
+                defaultValue={user.role}
+                disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
+                options={[
+                  { label: "Member (User)", value: Role.USER },
+                  { label: "Admin", value: Role.ADMIN },
+                  ...(isSuperAdmin ? [{ label: "Super Admin", value: Role.SUPER_ADMIN }] : []),
+                ]}
+                icon={<Shield size={18} />}
+              />
             </div>
           </div>
         )}
