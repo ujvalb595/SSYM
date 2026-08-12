@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Droplet,
+  Eye,
+  EyeOff,
   LockKeyhole,
   Phone,
   Save,
@@ -48,6 +50,7 @@ export function MemberProfileForm({
   currentUserRole: Role;
   currentUserId: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -65,14 +68,16 @@ export function MemberProfileForm({
     setSuccess("");
     setLoading(true);
 
-    const values = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const values = new FormData(formElement);
     const name = String(values.get("name") || "").trim();
     const mobile = String(values.get("mobile") || "").trim();
     const birthDate = String(values.get("birthDate") || "");
     const bloodGroup = String(values.get("bloodGroup") || "");
     const password = String(values.get("password") || "");
     const roleVal = String(values.get("role") || "");
-    const isActiveVal = values.get("isActive") === "true";
+    const isActiveRaw = values.get("isActive");
+    const isActiveVal = isActiveRaw !== null ? isActiveRaw === "true" : undefined;
 
     try {
       const response = await fetch(`/api/members/${user.id}`, {
@@ -84,7 +89,7 @@ export function MemberProfileForm({
           birthDate: birthDate || null,
           bloodGroup: bloodGroup || null,
           password: password || undefined,
-          role: isAdminOrSuperAdmin ? roleVal : undefined,
+          role: isAdminOrSuperAdmin ? roleVal || undefined : undefined,
           isActive: isAdminOrSuperAdmin ? isActiveVal : undefined,
         }),
       });
@@ -99,6 +104,8 @@ export function MemberProfileForm({
 
       setSuccess("Profile updated successfully!");
       setLoading(false);
+      const pwdField = formElement.querySelector<HTMLInputElement>('input[name="password"]');
+      if (pwdField) pwdField.value = "";
       router.refresh();
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -219,21 +226,38 @@ export function MemberProfileForm({
               <Shield className="text-[#7257f4]" size={20} />
               <h3 className="text-lg font-bold text-[#24203a]">Role & Access Control</h3>
             </div>
-            <div className="max-w-md">
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-                User Role
-              </label>
-              <CustomSelect
-                name="role"
-                defaultValue={user.role}
-                disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
-                options={[
-                  { label: "Member (User)", value: Role.USER },
-                  { label: "Admin", value: Role.ADMIN },
-                  ...(isSuperAdmin ? [{ label: "Super Admin", value: Role.SUPER_ADMIN }] : []),
-                ]}
-                icon={<Shield size={18} />}
-              />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                  User Role
+                </label>
+                <CustomSelect
+                  name="role"
+                  defaultValue={user.role}
+                  disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
+                  options={[
+                    { label: "Member (User)", value: Role.USER },
+                    { label: "Admin", value: Role.ADMIN },
+                    ...(isSuperAdmin ? [{ label: "Super Admin", value: Role.SUPER_ADMIN }] : []),
+                  ]}
+                  icon={<Shield size={18} />}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                  Account Status
+                </label>
+                <CustomSelect
+                  name="isActive"
+                  defaultValue={user.isActive ? "true" : "false"}
+                  disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
+                  options={[
+                    { label: "Active Account", value: "true" },
+                    { label: "Inactive Account", value: "false" },
+                  ]}
+                  icon={<CheckCircle2 size={18} />}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -252,11 +276,19 @@ export function MemberProfileForm({
               <LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
               <input
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 minLength={8}
                 placeholder="Leave blank to keep existing password"
-                className="h-11 w-full rounded-xl border border-[#e8e3f2] bg-white pl-10 pr-4 text-sm outline-none transition focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
+                className="h-11 w-full rounded-xl border border-[#e8e3f2] bg-white pl-10 pr-11 text-sm outline-none transition focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label="Toggle password visibility"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
         </div>

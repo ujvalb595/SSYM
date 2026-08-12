@@ -2,12 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, HelpCircle, KeyRound, X } from "lucide-react";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,9 +71,18 @@ export default function LoginPage() {
                   className="mt-2 w-full rounded-xl border border-[#e6e1f3] bg-white px-4 py-3 outline-none transition placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
                 />
               </label>
-              <label className="block text-sm font-semibold">
-                Password
-                <div className="relative mt-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Password</span>
+                  <button
+                    type="button"
+                    onClick={() => setForgotModalOpen(true)}
+                    className="text-xs font-semibold text-[#7657f6] hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <div className="relative">
                   <input
                     required
                     name="password"
@@ -90,7 +100,7 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
                 </div>
-              </label>
+              </div>
               {error && (
                 <p
                   role="alert"
@@ -109,6 +119,58 @@ export default function LoginPage() {
           </div>
         </div>
       </section>
+
+      {/* Forgot Password Modal */}
+      {forgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-violet-100 text-[#7657f6]">
+                  <KeyRound size={20} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-bold text-[#24203a]">Reset Password</h3>
+                  <p className="text-xs text-stone-500">Account recovery instructions</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setForgotModalOpen(false)}
+                className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4 text-sm text-stone-600 leading-relaxed">
+              <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4">
+                <div className="flex items-start gap-2 text-[#7657f6] font-bold text-xs uppercase tracking-wider mb-1">
+                  <HelpCircle size={16} className="mt-0.5" />
+                  <span>Contact Mandal Admin</span>
+                </div>
+                <p className="text-xs text-stone-600">
+                  Password resets are managed securely by your SSYM Mandal Administrators.
+                </p>
+              </div>
+
+              <ol className="list-decimal list-inside space-y-2 text-xs text-stone-600">
+                <li>Contact a Mandal Admin or Super Admin with your registered 10-digit mobile number.</li>
+                <li>The Admin will reset your password from their Member Directory dashboard.</li>
+                <li>Once reset, sign in using your new credentials.</li>
+              </ol>
+
+              <div className="pt-3 flex justify-end border-t border-stone-100">
+                <button
+                  onClick={() => setForgotModalOpen(false)}
+                  className="rounded-xl bg-[#7657f6] px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-[#6042e6]"
+                >
+                  Understood
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
