@@ -29,7 +29,7 @@ export default async function ExpensesPage() {
         },
       },
       orderBy: {
-        date: "desc",
+        updatedAt: "desc",
       },
     });
 

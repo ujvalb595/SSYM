@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Pencil, X, Loader2 } from "lucide-react";
+import { Pencil, X, Loader2, Trash2 } from "lucide-react";
 
 export function EditDonationDialog({
   donation,
@@ -20,6 +20,7 @@ export function EditDonationDialog({
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [donorName, setDonorName] = useState(donation.donorName);
@@ -107,6 +108,31 @@ export function EditDonationDialog({
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Are you sure you want to delete this donation from "${donation.donorName}"?`)) {
+      return;
+    }
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/donations/${donation.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Failed to delete donation.");
+        setDeleting(false);
+        return;
+      }
+      setOpen(false);
+      setDeleting(false);
+      router.refresh();
+    } catch {
+      setError("Failed to delete donation.");
+      setDeleting(false);
     }
   }
 
@@ -225,22 +251,34 @@ export function EditDonationDialog({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2.5 pt-3">
+                  <div className="flex items-center justify-between pt-3">
                     <button
                       type="button"
-                      onClick={() => setOpen(false)}
-                      className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100"
+                      onClick={handleDelete}
+                      disabled={deleting || loading}
+                      className="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
                     >
-                      Cancel
+                      {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      {deleting ? "Deleting..." : "Delete"}
                     </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex items-center gap-2 rounded-xl bg-[#7257f4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5f44e2] disabled:opacity-50"
-                    >
-                      {loading && <Loader2 size={14} className="animate-spin" />}
-                      {loading ? "Saving..." : "Save Changes"}
-                    </button>
+
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading || deleting}
+                        className="flex items-center gap-2 rounded-xl bg-[#7257f4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5f44e2] disabled:opacity-50"
+                      >
+                        {loading && <Loader2 size={14} className="animate-spin" />}
+                        {loading ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>

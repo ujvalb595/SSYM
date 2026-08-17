@@ -55,6 +55,7 @@ export async function PATCH(
           description: description || null,
           amount,
           date,
+          createdById: session.user.id,
         },
         include: {
           createdBy: {
@@ -67,14 +68,15 @@ export async function PATCH(
       })) as unknown as Record<string, unknown>;
     } else {
       await prisma.$executeRawUnsafe(
-        `UPDATE "Expense" SET title = $1, description = $2, amount = $3, date = $4, "updatedAt" = NOW() WHERE id = $5`,
+        `UPDATE "Expense" SET title = $1, description = $2, amount = $3, date = $4, "createdById" = $5, "updatedAt" = NOW() WHERE id = $6`,
         title,
         description || null,
         amount,
         new Date(date),
+        session.user.id,
         id
       );
-      updatedExpense = { id, title, description, amount, date };
+      updatedExpense = { id, title, description, amount, date, createdById: session.user.id };
     }
 
     try {

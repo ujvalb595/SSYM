@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search, UsersRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, User, UsersRound, X } from "lucide-react";
 import { AddMemberDialog } from "./add-member-dialog";
 import { MemberActions } from "./member-actions";
 
@@ -15,12 +15,15 @@ export interface MemberRowData {
   bloodGroup: string;
   rawBloodGroup?: string;
   initials: string;
+  addedUpdatedBy?: string;
+  addedUpdatedByRole?: string;
 }
 
 interface MembersDirectoryViewProps {
   members: MemberRowData[];
   totalCount: number;
   canManageMembers: boolean;
+  isSuperAdmin?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -29,6 +32,7 @@ export function MembersDirectoryView({
   members,
   totalCount,
   canManageMembers,
+  isSuperAdmin = false,
 }: MembersDirectoryViewProps) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,6 +130,9 @@ export function MembersDirectoryView({
                 <th className="px-6 py-4 font-semibold">Mobile No.</th>
                 <th className="px-6 py-4 font-semibold">Birth Date</th>
                 <th className="px-6 py-4 font-semibold">Blood Group</th>
+                {isSuperAdmin && (
+                  <th className="px-6 py-4 font-semibold">Added / Updated By</th>
+                )}
                 {canManageMembers && (
                   <th className="px-6 py-4 text-right font-semibold">
                     Action
@@ -160,6 +167,20 @@ export function MembersDirectoryView({
                         {m.bloodGroup}
                       </span>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4">
+                        <div>
+                          <span className="text-xs font-semibold text-stone-800 block">
+                            {m.addedUpdatedBy || "Super Admin"}
+                          </span>
+                          {m.addedUpdatedByRole && (
+                            <span className="text-[10px] text-stone-500 font-medium block">
+                              {m.addedUpdatedByRole === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    )}
                     {canManageMembers && (
                       <td className="px-6 py-4 text-right">
                         <MemberActions
@@ -175,7 +196,7 @@ export function MembersDirectoryView({
               ) : (
                 <tr>
                   <td
-                    colSpan={canManageMembers ? 5 : 4}
+                    colSpan={4 + (canManageMembers ? 1 : 0) + (isSuperAdmin ? 1 : 0)}
                     className="p-12 text-center text-stone-500"
                   >
                     <p className="font-bold text-[#24203a]">No members found</p>

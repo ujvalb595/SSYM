@@ -30,7 +30,7 @@ export default async function DonationsPage() {
           },
         },
         orderBy: {
-          date: "desc",
+          updatedAt: "desc",
         },
       });
 

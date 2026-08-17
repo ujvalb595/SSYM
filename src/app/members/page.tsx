@@ -72,6 +72,7 @@ export default async function MembersPage() {
 
   const userRole = session.user.role;
   const canManageMembers = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
 
   let members: MemberRowData[] = [];
   let totalCount = 0;
@@ -79,7 +80,38 @@ export default async function MembersPage() {
   if (process.env.PRISMA_DATABASE_URL) {
     try {
       const users = await prisma.user.findMany({
+        orderBy: { updatedAt: "desc" },
+        include: {
+          createdBy: {
+            select: {
+              name: true,
+              role: true,
+            },
+          },
+          updatedBy: {
+            select: {
+              name: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      // Audit logs fallback for records where createdBy/updatedBy isn't set yet
+      const auditLogs = await prisma.auditLog.findMany({
+        where: {
+          entity: "User",
+          action: { in: ["CREATE", "UPDATE"] },
+        },
         orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              name: true,
+              role: true,
+            },
+          },
+        },
       });
 
       totalCount = users.length;
@@ -109,6 +141,17 @@ export default async function MembersPage() {
           ? bloodGroupLabel[u.bloodGroup] || u.bloodGroup
           : "O+";
 
+        let addedUpdatedBy = u.updatedBy?.name || u.createdBy?.name;
+        let addedUpdatedByRole = u.updatedBy?.role || u.createdBy?.role;
+
+        if (!addedUpdatedBy) {
+          const log = auditLogs.find((l) => l.entityId === u.id);
+          if (log?.user) {
+            addedUpdatedBy = log.user.name;
+            addedUpdatedByRole = log.user.role;
+          }
+        }
+
         return {
           id: u.id,
           name: u.name,
@@ -118,6 +161,8 @@ export default async function MembersPage() {
           bloodGroup: blood,
           rawBloodGroup: u.bloodGroup || undefined,
           initials,
+          addedUpdatedBy: addedUpdatedBy || undefined,
+          addedUpdatedByRole: addedUpdatedByRole || undefined,
         };
       });
     } catch {
@@ -137,6 +182,7 @@ export default async function MembersPage() {
           members={members}
           totalCount={totalCount}
           canManageMembers={canManageMembers}
+          isSuperAdmin={isSuperAdmin}
         />
       </main>
     </DashboardShell>
