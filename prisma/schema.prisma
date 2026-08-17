@@ -65,6 +65,13 @@ model User {
   // Audit
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+  createdById      String?
+  updatedById      String?
+
+  createdBy        User?       @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers     User[]      @relation("UserCreatedBy")
+  updatedBy        User?       @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedUsers     User[]      @relation("UserUpdatedBy")
 
   // Relations
   payments           Payment[]            @relation("MemberPayments")

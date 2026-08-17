@@ -114,7 +114,7 @@ export async function GET() {
             },
           },
         },
-        orderBy: { date: "desc" },
+        orderBy: { updatedAt: "desc" },
       })) as unknown as Record<string, unknown>[];
     } else {
       expenses = (await prisma.$queryRawUnsafe(`
@@ -129,7 +129,7 @@ export async function GET() {
           u.role AS "createdByRole"
         FROM "Expense" e
         LEFT JOIN "User" u ON e."createdById" = u.id
-        ORDER BY e.date DESC
+        ORDER BY e."updatedAt" DESC
       `)) as Record<string, unknown>[];
     }
 

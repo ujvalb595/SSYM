@@ -48,6 +48,8 @@ export async function POST(request: Request) {
         bloodGroup: bloodGroup || null,
         passwordHash: await bcrypt.hash(password, 12),
         role: assignedRole,
+        createdById: session.user.id,
+        updatedById: session.user.id,
       },
       select: {
         id: true,

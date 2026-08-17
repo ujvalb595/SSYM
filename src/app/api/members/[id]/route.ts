@@ -66,6 +66,7 @@ export async function PATCH(
       mobileNumber: mobile,
       bloodGroup: bloodGroup || null,
       birthDate: birthDate ? new Date(birthDate) : null,
+      updatedBy: { connect: { id: session.user.id } },
     };
 
     if (isAdminOrSuperAdmin) {
