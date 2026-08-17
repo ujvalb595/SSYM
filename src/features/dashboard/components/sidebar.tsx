@@ -8,6 +8,7 @@ import {
   ChartNoAxesCombined,
   CreditCard,
   HeartHandshake,
+  Home,
   LayoutDashboard,
   ShieldCheck,
   UsersRound,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 const links = [
+  [Home, "Home", "/home"],
   [LayoutDashboard, "Dashboard", "/dashboard"],
   [UsersRound, "Members", "/members"],
   [CreditCard, "Payments", "/payments"],
