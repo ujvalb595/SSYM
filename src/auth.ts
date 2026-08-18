@@ -56,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: user.id,
             name: user.name,
             mobileNumber: user.mobileNumber,
+            image: user.image,
             role: user.role,
             isActive: user.isActive,
           };
@@ -67,12 +68,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt: ({ token, user }) => {
+    jwt: ({ token, user, trigger, session }) => {
       if (user) {
         token.sub = user.id;
         token.role = user.role;
         token.isActive = user.isActive;
         token.mobileNumber = user.mobileNumber;
+        token.picture = user.image;
+      }
+      if (trigger === "update" && session) {
+        if (session.image !== undefined) token.picture = session.image;
+        if (session.name !== undefined) token.name = session.name;
       }
       return token;
     },
@@ -82,6 +88,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role || Role.USER) as Role;
         session.user.isActive = token.isActive ?? true;
         session.user.mobileNumber = (token.mobileNumber || "") as string;
+        session.user.image = (token.picture || session.user.image) as string | null;
       }
       return session;
     },

@@ -1,23 +1,66 @@
 "use client";
-import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+
+import { useEffect, useState, useRef, ChangeEvent } from "react";
+import {
+  Heart,
+  Grid,
+  SquareStack,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Search,
+  PlusCircle,
+  X,
+  Upload,
+  MessageSquareText,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  Clock,
+  Pin,
+  MoreVertical,
+  Eye,
+  Calendar,
+} from "lucide-react";
+
+interface InstagramMediaChild {
+  id: string;
+  media_type: "IMAGE" | "VIDEO";
+  media_url: string;
+  thumbnail_url?: string;
+}
+
 interface InstagramPost {
   id: string;
   caption?: string;
-  media_type: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
+  media_type: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM" | "TEXT";
   media_product_type?: string;
   media_url?: string;
   thumbnail_url?: string;
   permalink: string;
   timestamp: string;
+  like_count?: number;
+  comments_count?: number;
+  isLocal?: boolean;
+  isPinned?: boolean;
+  scheduledAt?: string | null;
+  isScheduled?: boolean;
+  children?: {
+    data: InstagramMediaChild[];
+  };
 }
-/** * Instagram logo * Using a local SVG so there is no dependency * on the installed lucide-react version. */ function InstagramIcon({
-  size = 20,
-  className = "",
-}: {
-  size?: number;
-  className?: string;
-}) {
+
+interface PostViewer {
+  id: string;
+  name: string;
+  role: string;
+  mobileNumber: string;
+  viewedAt: string;
+}
+
+function InstagramIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
@@ -28,192 +71,2333 @@ interface InstagramPost {
       className={className}
       aria-hidden="true"
     >
-      {" "}
-      <rect
-        x="3"
-        y="3"
-        width="18"
-        height="18"
-        rx="5"
-        stroke="currentColor"
-        strokeWidth="2"
-      />{" "}
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />{" "}
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />{" "}
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
     </svg>
   );
 }
-export function InstagramFeed() {
+
+function FacebookIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </svg>
+  );
+}
+
+// Relative time formatting
+function formatTimeAgo(timestampString: string): string {
+  try {
+    const postDate = new Date(timestampString);
+    const now = new Date();
+    const diffMs = now.getTime() - postDate.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return "JUST NOW";
+    if (diffMin < 60) return `${diffMin}M AGO`;
+    if (diffHour < 24) return `${diffHour}H AGO`;
+    if (diffDay < 7) return `${diffDay}D AGO`;
+    if (diffDay < 30) return `${Math.floor(diffDay / 7)}W AGO`;
+
+    return postDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+  } catch {
+    return "RECENTLY";
+  }
+}
+
+// Highlight hashtags in text/caption
+function FormattedCaption({ caption }: { caption?: string }) {
+  if (!caption) return null;
+
+  const parts = caption.split(/(\s+)/);
+  return (
+    <span className="whitespace-pre-line leading-relaxed">
+      {parts.map((part, index) => {
+        if (part.startsWith("#")) {
+          return (
+            <span key={index} className="font-semibold text-[#7257f4] hover:underline cursor-pointer">
+              {part}
+            </span>
+          );
+        }
+        if (part.startsWith("@")) {
+          return (
+            <span key={index} className="font-bold text-[#0095F6] hover:underline cursor-pointer">
+              {part}
+            </span>
+          );
+        }
+        return part;
+      })}
+    </span>
+  );
+}
+
+// Expandable Caption Component with "...more" button
+function ExpandableCaption({ caption, maxLength = 100 }: { caption?: string; maxLength?: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!caption) return null;
+
+  const shouldTruncate = caption.length > maxLength && !isExpanded;
+
+  return (
+    <div className="text-xs leading-relaxed text-[#24203a]">
+      {shouldTruncate ? (
+        <>
+          <FormattedCaption caption={caption.slice(0, maxLength).trim()} />
+          <span className="text-stone-400">... </span>
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="font-semibold text-stone-500 hover:text-[#7257f4] transition-colors cursor-pointer ml-0.5"
+          >
+            more
+          </button>
+        </>
+      ) : (
+        <>
+          <FormattedCaption caption={caption} />
+          {isExpanded && caption.length > maxLength && (
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="inline-block ml-1.5 font-semibold text-stone-400 hover:text-stone-600 text-[11px] cursor-pointer"
+            >
+              show less
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Instagram Reel Video Player with Auto-Play on Viewport & Tap Controls
+function InstaVideoPlayer({
+  src,
+  poster,
+  permalink,
+  onDoubleTap,
+}: {
+  src: string;
+  poster?: string;
+  permalink?: string;
+  onDoubleTap?: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [showControlBadge, setShowControlBadge] = useState<"play" | "pause" | null>(null);
+
+  // Single vs Double Click Handler
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-play when video comes into viewport (50% visible)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || hasError || !src) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (videoRef.current && !hasError) {
+            if (entry.isIntersecting) {
+              videoRef.current.muted = isMuted;
+              const playPromise = videoRef.current.play();
+              if (playPromise !== undefined) {
+                playPromise
+                  .then(() => {
+                    setIsPlaying(true);
+                  })
+                  .catch((err) => {
+                    console.warn("Autoplay prevented:", err);
+                    setIsPlaying(false);
+                  });
+              }
+            } else {
+              videoRef.current.pause();
+              setIsPlaying(false);
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasError, src, isMuted]);
+
+  const togglePlayPause = () => {
+    if (!videoRef.current || hasError) return;
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+      setShowControlBadge("pause");
+    } else {
+      videoRef.current.muted = isMuted;
+      videoRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setHasError(true));
+      setShowControlBadge("play");
+    }
+
+    setTimeout(() => {
+      setShowControlBadge(null);
+    }, 700);
+  };
+
+  const handleContainerClick = () => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      // Double tap -> heart animation
+      onDoubleTap?.();
+    } else {
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null;
+        // Single tap -> toggle play/pause
+        togglePlayPause();
+      }, 250);
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      const nextMuted = !isMuted;
+      videoRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
+    }
+  };
+
+  // If video fails to load or CDN link expired, fallback gracefully to poster image + Instagram link
+  if (hasError || !src) {
+    return (
+      <div
+        className="relative w-full flex items-center justify-center bg-[#09090b] cursor-pointer select-none overflow-hidden min-h-[300px] max-h-[640px]"
+        onDoubleClick={onDoubleTap}
+      >
+        {poster ? (
+          <img
+            src={poster}
+            alt="Video thumbnail"
+            className="w-full max-h-[640px] object-contain"
+          />
+        ) : (
+          <div className="flex h-56 w-full flex-col items-center justify-center gap-2 text-stone-400">
+            <InstagramIcon size={36} />
+            <span className="text-xs font-semibold">Video preview unavailable</span>
+          </div>
+        )}
+
+        {permalink && (
+          <a
+            href={permalink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-3 right-3 z-20 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md transition-transform hover:scale-105 shadow-md"
+          >
+            <Play size={10} className="fill-white" /> Watch on Instagram
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={handleContainerClick}
+      className="relative w-full flex items-center justify-center bg-[#09090b] cursor-pointer select-none overflow-hidden min-h-[300px] max-h-[640px]"
+    >
+      {/* Ambient Blurred Backdrop */}
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+        />
+      )}
+
+      <video
+        ref={videoRef}
+        src={src}
+        poster={poster}
+        loop
+        playsInline
+        muted={isMuted}
+        preload="metadata"
+        onError={() => setHasError(true)}
+        className="relative z-10 w-full max-h-[640px] object-contain"
+      />
+
+      {/* Play/Pause Control Feedback Badge (Center) */}
+      {showControlBadge && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md animate-in zoom-in-50 duration-200">
+            {showControlBadge === "play" ? (
+              <Play size={30} className="fill-white ml-1" />
+            ) : (
+              <Pause size={30} className="fill-white" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Paused Icon Overlay */}
+      {!isPlaying && !showControlBadge && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md shadow-lg">
+            <Play size={26} className="fill-white ml-1" />
+          </div>
+        </div>
+      )}
+
+      {/* Instagram Sound Mute / Unmute Button */}
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-md"
+        title={isMuted ? "Unmute sound" : "Mute sound"}
+      >
+        {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+      </button>
+    </div>
+  );
+}
+
+// Instagram Carousel component for multi-image / multi-video slide effect
+function PostMediaCarousel({
+  post,
+  onDoubleTap,
+  heartAnim,
+}: {
+  post: InstagramPost;
+  onDoubleTap?: () => void;
+  heartAnim?: boolean;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Extract all media slides
+  const items: { id: string; media_type: string; media_url?: string; thumbnail_url?: string }[] = [];
+
+  if (post.children?.data && post.children.data.length > 0) {
+    items.push(...post.children.data);
+  } else if (post.media_url || post.thumbnail_url) {
+    items.push({
+      id: post.id,
+      media_type: post.media_type,
+      media_url: post.media_url,
+      thumbnail_url: post.thumbnail_url,
+    });
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-56 w-full items-center justify-center bg-[#f7f6fb]">
+        <InstagramIcon size={36} className="text-stone-300" />
+      </div>
+    );
+  }
+
+  const isMultiple = items.length > 1;
+
+  const nextSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeIndex < items.length - 1) {
+      setActiveIndex((prev) => prev + 1);
+    }
+  };
+
+  const prevSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeIndex > 0) {
+      setActiveIndex((prev) => prev - 1);
+    }
+  };
+
+  return (
+    <div
+      className="relative w-full select-none overflow-hidden bg-[#f7f6fb] flex items-center justify-center min-h-[250px] max-h-[640px] group"
+    >
+      {/* Slides Slider Container */}
+      <div
+        className="flex w-full transition-transform duration-300 ease-out"
+        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+      >
+        {items.map((item, idx) => {
+          const isVideo = item.media_type === "VIDEO";
+          const imgUrl = isVideo ? item.thumbnail_url || item.media_url : item.media_url;
+
+          return (
+            <div
+              key={item.id || idx}
+              className="w-full shrink-0 flex items-center justify-center min-h-[250px] max-h-[640px] bg-black/5"
+            >
+              {isVideo ? (
+                <InstaVideoPlayer
+                  src={item.media_url || item.thumbnail_url || ""}
+                  poster={item.thumbnail_url || item.media_url}
+                  permalink={post.permalink}
+                  onDoubleTap={onDoubleTap}
+                />
+              ) : imgUrl ? (
+                <div
+                  className="w-full flex items-center justify-center min-h-[250px] max-h-[640px]"
+                  onDoubleClick={onDoubleTap}
+                >
+                  <img
+                    src={imgUrl}
+                    alt={post.caption?.slice(0, 80) || "Post image"}
+                    className="w-full max-h-[640px] object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-56 w-full items-center justify-center">
+                  <InstagramIcon size={36} className="text-stone-300" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Multiple Images Slide Counter Badge (Top Right, e.g. 1/5) */}
+      {isMultiple && (
+        <div className="absolute top-3 right-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-md tracking-wider">
+          {activeIndex + 1}/{items.length}
+        </div>
+      )}
+
+      {/* Navigation Arrow Left */}
+      {isMultiple && activeIndex > 0 && (
+        <button
+          onClick={prevSlide}
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95"
+          aria-label="Previous slide"
+        >
+          <ChevronLeft size={16} />
+        </button>
+      )}
+
+      {/* Navigation Arrow Right */}
+      {isMultiple && activeIndex < items.length - 1 && (
+        <button
+          onClick={nextSlide}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95"
+          aria-label="Next slide"
+        >
+          <ChevronRight size={16} />
+        </button>
+      )}
+
+      {/* Bottom Dot Indicators */}
+      {isMultiple && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-1 backdrop-blur-sm">
+          {items.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveIndex(idx);
+              }}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                idx === activeIndex
+                  ? "w-3 bg-white"
+                  : "w-1.5 bg-white/50 hover:bg-white/80"
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Big Heart Animation on Double Tap */}
+      {heartAnim && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+          <Heart
+            size={80}
+            className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface LikerUser {
+  id: string;
+  name: string;
+  role: string;
+  mobileNumber?: string;
+}
+
+function InstagramStoriesBar({
+  posts,
+  onSelectPost,
+}: {
+  posts: InstagramPost[];
+  onSelectPost: (post: InstagramPost) => void;
+}) {
+  // Show ONLY posts that an Admin has pinned
+  const storyItems = posts.filter((post) => post.isPinned);
+
+  if (storyItems.length === 0) return null;
+
+  return (
+    <div className="mb-6 w-full overflow-x-auto pb-2 scrollbar-none select-none">
+      <div className="flex items-center gap-4 px-1">
+        {storyItems.map((post) => {
+          const isVideo = post.media_type === "VIDEO";
+          const imgUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
+          const isText = post.media_type === "TEXT" || !imgUrl;
+
+          return (
+            <button
+              key={post.id}
+              onClick={() => onSelectPost(post)}
+              className="group flex flex-col items-center gap-1.5 shrink-0 focus:outline-none cursor-pointer"
+            >
+              {/* Instagram Story Gradient Ring */}
+              <div
+                className={`relative flex h-16 w-16 items-center justify-center rounded-full p-[2.5px] transition-transform duration-300 group-hover:scale-105 ${
+                  post.isPinned
+                    ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 shadow-md shadow-rose-200/50 ring-2 ring-amber-400/40"
+                    : "bg-gradient-to-tr from-[#7257f4] via-[#bc59ec] to-[#f472b6]"
+                }`}
+              >
+                <div className="h-full w-full overflow-hidden rounded-full border-2 border-white bg-stone-100 flex items-center justify-center relative">
+                  {isText ? (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#7257f4] to-[#bc59ec] p-1 text-center text-[9px] font-bold text-white leading-tight">
+                      SSYM
+                    </div>
+                  ) : (
+                    <img
+                      src={imgUrl}
+                      alt={post.caption || "Story Highlight"}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+
+                  {/* Pin Badge on Story Avatar */}
+                  {post.isPinned && (
+                    <div className="absolute bottom-0 right-0 rounded-full bg-amber-500 p-0.5 text-white shadow-sm border border-white">
+                      <Pin size={8} className="fill-white" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Story Title */}
+              <span className="max-w-[72px] truncate text-[11px] font-semibold text-[#24203a] group-hover:text-[#7257f4] transition-colors">
+                {post.isPinned ? "📌 Pinned" : post.caption?.slice(0, 12) || "Highlight"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Visibility View Tracker for Posts (IntersectionObserver)
+function PostViewTracker({
+  postId,
+  onVisible,
+  children,
+}: {
+  postId: string;
+  onVisible: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const recordedRef = useRef(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || recordedRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !recordedRef.current) {
+            recordedRef.current = true;
+            onVisible(postId);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      if (node) observer.unobserve(node);
+    };
+  }, [postId, onVisible]);
+
+  return <div ref={ref}>{children}</div>;
+}
+
+// Custom SSYM App-Themed Calendar & Time Picker Component
+interface SSYMCalendarPickerProps {
+  value: string;
+  onChange: (val: string) => void;
+}
+
+function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
+  const parseVal = (strVal: string) => {
+    if (!strVal) return new Date();
+    const d = new Date(strVal);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const initial = parseVal(value);
+  const [viewDate, setViewDate] = useState<Date>(
+    new Date(initial.getFullYear(), initial.getMonth(), 1)
+  );
+  const [selectedDay, setSelectedDay] = useState<number>(initial.getDate());
+
+  let rawHour = initial.getHours();
+  const initialAmpm = rawHour >= 12 ? "PM" : "AM";
+  rawHour = rawHour % 12;
+  rawHour = rawHour ? rawHour : 12;
+
+  const [hour, setHour] = useState<number>(rawHour);
+  const [minute, setMinute] = useState<number>(Math.floor(initial.getMinutes() / 5) * 5);
+  const [ampm, setAmpm] = useState<"AM" | "PM">(initialAmpm);
+
+  const emitChange = (y: number, m: number, d: number, h: number, min: number, ap: "AM" | "PM") => {
+    let finalHour = h;
+    if (ap === "PM" && finalHour < 12) finalHour += 12;
+    if (ap === "AM" && finalHour === 12) finalHour = 0;
+
+    const dt = new Date(y, m, d, finalHour, min);
+    const localIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    onChange(localIso);
+  };
+
+  const handleDayClick = (d: number) => {
+    setSelectedDay(d);
+    emitChange(viewDate.getFullYear(), viewDate.getMonth(), d, hour, minute, ampm);
+  };
+
+  const handleHourClick = (h: number) => {
+    setHour(h);
+    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, h, minute, ampm);
+  };
+
+  const handleMinuteClick = (m: number) => {
+    setMinute(m);
+    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, hour, m, ampm);
+  };
+
+  const handleAmpmClick = (ap: "AM" | "PM") => {
+    setAmpm(ap);
+    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, hour, minute, ap);
+  };
+
+  const prevMonth = () => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  };
+
+  const handleToday = () => {
+    const now = new Date();
+    setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDay(now.getDate());
+    let h = now.getHours();
+    const ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    const m = Math.floor(now.getMinutes() / 5) * 5;
+    setHour(h);
+    setMinute(m);
+    setAmpm(ap);
+    emitChange(now.getFullYear(), now.getMonth(), now.getDate(), h, m, ap);
+  };
+
+  const handleClear = () => {
+    onChange("");
+  };
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const monthName = viewDate.toLocaleString("default", { month: "long" });
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const cells = [];
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrevMonth - i, isCurrent: false });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, isCurrent: true });
+  }
+  const total = cells.length > 35 ? 42 : 35;
+  const rem = total - cells.length;
+  for (let d = 1; d <= rem; d++) {
+    cells.push({ day: d, isCurrent: false });
+  }
+
+  const getTime24String = () => {
+    let h24 = hour;
+    if (ampm === "PM" && h24 < 12) h24 += 12;
+    if (ampm === "AM" && h24 === 12) h24 = 0;
+    return `${h24.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  };
+
+  const handleTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (!val) return;
+    const [hStr, mStr] = val.split(":");
+    const h24 = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const ap = h24 >= 12 ? "PM" : "AM";
+    let h12 = h24 % 12;
+    h12 = h12 ? h12 : 12;
+
+    setHour(h12);
+    setMinute(m);
+    setAmpm(ap);
+    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, h12, m, ap);
+  };
+
+  return (
+    <div className="rounded-2xl border border-[#ebe7f6] bg-white p-3.5 shadow-sm text-[#24203a] select-none space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+        {/* LEFT PANEL: Month Calendar Grid */}
+        <div className="sm:col-span-7 space-y-2.5">
+          {/* Month Header Nav */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-[#24203a]">
+              {monthName} {year}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={prevMonth}
+                className="rounded-lg p-1 text-stone-500 hover:bg-[#f4f0ff] hover:text-[#7257f4] transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="rounded-lg p-1 text-stone-500 hover:bg-[#f4f0ff] hover:text-[#7257f4] transition-colors cursor-pointer"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Days of Week Header */}
+          <div className="grid grid-cols-7 text-center text-[10px] font-extrabold text-stone-400">
+            <span>S</span>
+            <span>M</span>
+            <span>T</span>
+            <span>W</span>
+            <span>T</span>
+            <span>F</span>
+            <span>S</span>
+          </div>
+
+          {/* Dates Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {cells.map((cell, idx) => {
+              if (!cell.isCurrent) {
+                return (
+                  <span key={idx} className="p-1 text-[11px] font-semibold text-stone-300">
+                    {cell.day}
+                  </span>
+                );
+              }
+
+              const isSelected = cell.day === selectedDay;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleDayClick(cell.day)}
+                  className={`rounded-xl py-1 text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#7257f4] text-white shadow-md shadow-violet-200"
+                      : "text-[#24203a] hover:bg-[#f4f0ff] hover:text-[#7257f4]"
+                  }`}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom Actions: Clear & Today */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#f5f2fd] text-[11px] font-bold text-[#7257f4]">
+            <button type="button" onClick={handleClear} className="hover:underline cursor-pointer">
+              Clear
+            </button>
+            <button type="button" onClick={handleToday} className="hover:underline cursor-pointer">
+              Today
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Typed Time Input */}
+        <div className="sm:col-span-5 border-t sm:border-t-0 sm:border-l border-[#f2effb] pt-3 sm:pt-0 sm:pl-3.5 flex flex-col justify-center space-y-2">
+          <label className="block text-[11px] font-bold text-[#24203a] flex items-center gap-1.5">
+            <Clock size={14} className="text-[#7257f4]" /> Select Time
+          </label>
+          <input
+            type="time"
+            value={getTime24String()}
+            onChange={handleTimeInputChange}
+            className="w-full rounded-xl border border-[#e4dcf9] bg-white px-3.5 py-2.5 text-xs font-bold text-[#24203a] accent-[#7257f4] outline-none transition-all focus:border-[#7257f4] focus:ring-4 focus:ring-[#7257f4]/15 cursor-pointer"
+          />
+          <p className="text-[10px] font-medium text-stone-400">
+            Type exact time or use picker
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function InstagramFeed({ userRole }: { userRole?: string }) {
+  const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
+
   const [posts, setPosts] = useState<InstagramPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [viewMode, setViewMode] = useState<"feed" | "grid">("feed");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // App-specific Like State
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [heartAnimId, setHeartAnimId] = useState<string | null>(null);
+
+  // Likers Modal State (Admins & Super Admins Only)
+  const [likersModalPostId, setLikersModalPostId] = useState<string | null>(null);
+  const [likers, setLikers] = useState<LikerUser[]>([]);
+  const [loadingLikers, setLoadingLikers] = useState(false);
+
+  // Modal State for "Create Post"
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newCaption, setNewCaption] = useState("");
+  const [newMediaUrl, setNewMediaUrl] = useState("");
+  const [newMediaType, setNewMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+
+  // Modal State for Pinning (Admins & Super Admins Only)
+  const [pinningPost, setPinningPost] = useState<InstagramPost | null>(null);
+  const [isCreatePinned, setIsCreatePinned] = useState(false);
+  const [createPinDuration, setCreatePinDuration] = useState<"24h" | "7d" | "PERMANENT">("PERMANENT");
+
+  // Modal State for Scheduling Posts (Admins & Super Admins Only)
+  const [isCreateScheduled, setIsCreateScheduled] = useState(false);
+  const [createScheduledAt, setCreateScheduledAt] = useState("");
+  const [schedDate, setSchedDate] = useState<string>("");
+  const [schedHour, setSchedHour] = useState<string>("06");
+  const [schedMin, setSchedMin] = useState<string>("00");
+  const [schedAmpm, setSchedAmpm] = useState<"AM" | "PM">("PM");
+
+  const getScheduledIsoString = () => {
+    if (!schedDate) return null;
+    let hourNum = parseInt(schedHour, 10);
+    if (schedAmpm === "PM" && hourNum < 12) hourNum += 12;
+    if (schedAmpm === "AM" && hourNum === 12) hourNum = 0;
+    const hStr = hourNum.toString().padStart(2, "0");
+    return `${schedDate}T${hStr}:${schedMin}:00`;
+  };
+
+  const applySchedulePreset = (preset: "today_6pm" | "tomorrow_9am" | "tomorrow_6pm" | "in_2days") => {
+    const now = new Date();
+    const target = new Date();
+
+    if (preset === "today_6pm") {
+      target.setHours(18, 0, 0, 0);
+      if (target <= now) target.setDate(target.getDate() + 1);
+    } else if (preset === "tomorrow_9am") {
+      target.setDate(target.getDate() + 1);
+      target.setHours(9, 0, 0, 0);
+    } else if (preset === "tomorrow_6pm") {
+      target.setDate(target.getDate() + 1);
+      target.setHours(18, 0, 0, 0);
+    } else if (preset === "in_2days") {
+      target.setDate(target.getDate() + 2);
+      target.setHours(18, 0, 0, 0);
+    }
+
+    const yyyy = target.getFullYear();
+    const mm = (target.getMonth() + 1).toString().padStart(2, "0");
+    const dd = target.getDate().toString().padStart(2, "0");
+    setSchedDate(`${yyyy}-${mm}-${dd}`);
+
+    let hours = target.getHours();
+    const ampmVal = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    setSchedHour(hours.toString().padStart(2, "0"));
+    setSchedMin("00");
+    setSchedAmpm(ampmVal);
+  };
+
+  // 3-Dots Action Menu State
+  const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
+
+  // View tracking and viewers modal state
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+  const [viewersModalOpen, setViewersModalOpen] = useState(false);
+  const [viewersList, setViewersList] = useState<PostViewer[]>([]);
+  const [viewersLoading, setViewersLoading] = useState(false);
+  const [activeViewerPostId, setActiveViewerPostId] = useState<string | null>(null);
+
+  const fetchViewCounts = async () => {
+    try {
+      const res = await fetch("/api/posts/view");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.viewCounts) {
+          setViewCounts(data.viewCounts);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching view counts:", err);
+    }
+  };
+
+  const recordPostView = async (postId: string) => {
+    try {
+      const res = await fetch("/api/posts/view", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.viewCount !== undefined) {
+          setViewCounts((prev) => ({ ...prev, [postId]: data.viewCount }));
+        }
+      }
+    } catch (err) {
+      console.error("Error recording view:", err);
+    }
+  };
+
+  const openViewersModal = async (postId: string) => {
+    if (!isAdmin) return;
+    setActiveViewerPostId(postId);
+    setViewersModalOpen(true);
+    setViewersLoading(true);
+    try {
+      const res = await fetch(`/api/posts/view?postId=${postId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setViewersList(data.viewers || []);
+      }
+    } catch (err) {
+      console.error("Error fetching viewers:", err);
+    } finally {
+      setViewersLoading(false);
+    }
+  };
+
+  const handleTogglePin = async (
+    postId: string,
+    targetIsPinned: boolean,
+    duration?: "24h" | "7d" | "PERMANENT"
+  ) => {
+    try {
+      const res = await fetch("/api/posts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: postId,
+          isPinned: targetIsPinned,
+          pinDuration: duration || "PERMANENT",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to update pin status.");
+        return;
+      }
+
+      setPosts((prev) => {
+        const updated = prev.map((p) =>
+          p.id === postId
+            ? { ...p, isPinned: targetIsPinned, pinnedUntil: data.data?.pinnedUntil || null }
+            : p
+        );
+
+        return [...updated].sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
+      });
+
+      setPinningPost(null);
+    } catch (err) {
+      console.error("Failed to pin post:", err);
+      alert("Error updating pin status.");
+    }
+  };
+
+  // Modal State for "Edit Post" (Admins & Super Admins Only, 15 min limit)
+  const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+  const [editMediaUrl, setEditMediaUrl] = useState("");
+  const [editMediaType, setEditMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
+  const [editPreviewFile, setEditPreviewFile] = useState<string | null>(null);
+
+  const handleOpenEdit = (post: InstagramPost) => {
+    const postTime = new Date(post.timestamp).getTime();
+    const minutesPassed = (Date.now() - postTime) / (1000 * 60);
+
+    if (minutesPassed > 15) {
+      alert(`Edit window expired! Posts can only be edited within 15 minutes of creation. (Created ${Math.round(minutesPassed)} minutes ago)`);
+      return;
+    }
+
+    setEditingPost(post);
+    setEditCaption(post.caption || "");
+    setEditMediaType(post.media_type === "CAROUSEL_ALBUM" ? "IMAGE" : (post.media_type as unknown as "IMAGE" | "VIDEO" | "TEXT"));
+    setEditMediaUrl(post.media_url || "");
+    setEditPreviewFile(post.media_url || post.thumbnail_url || null);
+  };
+
+  const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVid = file.type.startsWith("video/");
+    setEditMediaType(isVid ? "VIDEO" : "IMAGE");
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setEditPreviewFile(result);
+      setEditMediaUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPost) return;
+
+    const finalMediaType = editMediaUrl.trim()
+      ? editMediaType === "TEXT"
+        ? "IMAGE"
+        : editMediaType
+      : "TEXT";
+
+    try {
+      const res = await fetch("/api/posts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingPost.id,
+          caption: editCaption,
+          mediaType: finalMediaType,
+          mediaUrl: editMediaUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to update post.");
+        return;
+      }
+
+      setPosts((prev) =>
+        prev.map((p) => (p.id === editingPost.id ? { ...p, ...data.data } : p))
+      );
+
+      setEditingPost(null);
+    } catch (err) {
+      console.error("Failed to edit post:", err);
+      alert("Error editing post.");
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const res = await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete post.");
+        return;
+      }
+
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      if (selectedPost?.id === postId) {
+        setSelectedPost(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete post:", err);
+      alert("Error deleting post.");
+    }
+  };
+
+  // Lightbox Modal state for Grid View
+  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
+
+  // Close Modals on ESC key press
   useEffect(() => {
-    async function loadInstagramPosts() {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedPost(null);
+        setEditingPost(null);
+        setIsCreateModalOpen(false);
+        setLikersModalPostId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Open Likers Modal (Admin only)
+  const openLikersModal = async (postId: string) => {
+    if (!isAdmin) return;
+    setLikersModalPostId(postId);
+    setLoadingLikers(true);
+    try {
+      const res = await fetch(`/api/posts/like?postId=${encodeURIComponent(postId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLikers(data.likers ?? []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch likers:", err);
+    } finally {
+      setLoadingLikers(false);
+    }
+  };
+
+  // Synchronously fetch posts on load
+  useEffect(() => {
+    const isMounted = true;
+
+    async function loadAllData() {
       try {
         setLoading(true);
         setError(false);
-        const response = await fetch("/api/instagram");
-        if (!response.ok) {
-          throw new Error("Failed to load Instagram posts");
+
+        const promises: Promise<Response>[] = [
+          fetch("/api/instagram"),
+          fetch("/api/posts"),
+          fetch("/api/posts/like"),
+        ];
+        if (isAdmin) {
+          promises.push(fetch("/api/posts/view"));
         }
-        const result = await response.json();
-        setPosts(result.data ?? []);
-      } catch (error) {
-        console.error("Instagram feed error:", error);
+
+        const results = await Promise.allSettled(promises);
+        if (!isMounted) return;
+        
+        const instaRes = results[0];
+        const dbPostsRes = results[1];
+        const likesRes = results[2];
+        const viewsRes = isAdmin ? results[3] : undefined;
+
+        let apiPosts: InstagramPost[] = [];
+        if (instaRes.status === "fulfilled" && instaRes.value.ok) {
+          const result = await instaRes.value.json();
+          apiPosts = result.data ?? [];
+        }
+
+        let dbPosts: InstagramPost[] = [];
+        if (dbPostsRes.status === "fulfilled" && dbPostsRes.value.ok) {
+          const result = await dbPostsRes.value.json();
+          dbPosts = result.data ?? [];
+        }
+
+        const initialLikedState: Record<string, boolean> = {};
+        const initialLikeCounts: Record<string, number> = {};
+
+        // Populate db post initial likes
+        (dbPosts as (InstagramPost & { isLiked?: boolean })[]).forEach((post) => {
+          if (post.isLiked) {
+            initialLikedState[post.id] = true;
+          }
+          if (typeof post.like_count === "number") {
+            initialLikeCounts[post.id] = post.like_count;
+          }
+        });
+
+        if (likesRes.status === "fulfilled" && likesRes.value.ok) {
+          const likesData = await likesRes.value.json();
+          if (likesData.likeCounts) {
+            Object.assign(initialLikeCounts, likesData.likeCounts);
+          }
+          if (likesData.userLikedPosts) {
+            Object.assign(initialLikedState, likesData.userLikedPosts);
+          }
+        }
+
+        if (viewsRes && viewsRes.status === "fulfilled" && viewsRes.value.ok) {
+          const viewsData = await viewsRes.value.json();
+          if (viewsData.viewCounts) {
+            setViewCounts(viewsData.viewCounts);
+          }
+        }
+
+        const combinedPosts = [...dbPosts, ...apiPosts];
+        combinedPosts.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
+
+        setPosts(combinedPosts);
+        setLikeCounts(initialLikeCounts);
+        setLikedPosts(initialLikedState);
+      } catch (err) {
+        console.error("Error loading feed data:", err);
         setError(true);
       } finally {
         setLoading(false);
       }
     }
-    loadInstagramPosts();
+    loadAllData();
   }, []);
+
+  // Record view when lightbox modal is opened
+  useEffect(() => {
+    if (selectedPost?.id) {
+      recordPostView(selectedPost.id);
+    }
+  }, [selectedPost?.id]);
+
+  // Toggle Like on a Post (Persisted in PostgreSQL DB)
+  const handleToggleLike = async (postId: string) => {
+    const isCurrentlyLiked = !!likedPosts[postId];
+    const willBeLiked = !isCurrentlyLiked;
+
+    // Optimistic UI update
+    setLikedPosts((prev) => ({ ...prev, [postId]: willBeLiked }));
+    setLikeCounts((prev) => {
+      const currentCount = prev[postId] || 0;
+      return { ...prev, [postId]: Math.max(0, currentCount + (willBeLiked ? 1 : -1)) };
+    });
+
+    try {
+      const res = await fetch("/api/posts/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setLikedPosts((prev) => ({ ...prev, [postId]: data.isLiked }));
+        setLikeCounts((prev) => ({ ...prev, [postId]: data.likeCount }));
+      } else {
+        // Revert on error
+        setLikedPosts((prev) => ({ ...prev, [postId]: isCurrentlyLiked }));
+        setLikeCounts((prev) => {
+          const currentCount = prev[postId] || 0;
+          return { ...prev, [postId]: Math.max(0, currentCount + (isCurrentlyLiked ? 1 : -1)) };
+        });
+      }
+    } catch (error) {
+      console.error("Failed to toggle like in database:", error);
+      // Revert on error
+      setLikedPosts((prev) => ({ ...prev, [postId]: isCurrentlyLiked }));
+      setLikeCounts((prev) => {
+        const currentCount = prev[postId] || 0;
+        return { ...prev, [postId]: Math.max(0, currentCount + (isCurrentlyLiked ? 1 : -1)) };
+      });
+    }
+  };
+
+  // Double tap to like on image/card
+  const handleDoubleTap = (postId: string) => {
+    if (!likedPosts[postId]) {
+      handleToggleLike(postId);
+    }
+    setHeartAnimId(postId);
+    setTimeout(() => {
+      setHeartAnimId(null);
+    }, 800);
+  };
+
+  // File Upload Handler for Create Post
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVid = file.type.startsWith("video/");
+    setNewMediaType(isVid ? "VIDEO" : "IMAGE");
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setPreviewFile(result);
+      setNewMediaUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Create App Post Handler (Persisted in PostgreSQL DB)
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCaption.trim() && !newMediaUrl.trim()) return;
+
+    const finalMediaType = newMediaUrl.trim()
+      ? newMediaType === "TEXT"
+        ? "IMAGE"
+        : newMediaType
+      : "TEXT";
+
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caption: newCaption.trim(),
+          mediaType: finalMediaType,
+          mediaUrl: newMediaUrl.trim(),
+          isPinned: isCreatePinned,
+          pinDuration: createPinDuration,
+          scheduledAt: isCreateScheduled && createScheduledAt ? new Date(createScheduledAt).toISOString() : null,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save post to database");
+      }
+
+      const result = await res.json();
+      const newPost: InstagramPost = result.data;
+
+      setPosts((prev) => {
+        const updated = [newPost, ...prev];
+        return updated.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
+      });
+
+      // Reset Form & Close Modal
+      setNewCaption("");
+      setNewMediaUrl("");
+      setNewMediaType("TEXT");
+      setPreviewFile(null);
+      setIsCreatePinned(false);
+      setCreatePinDuration("PERMANENT");
+      setIsCreateScheduled(false);
+      setCreateScheduledAt("");
+      setIsCreateModalOpen(false);
+    } catch (err) {
+      console.error("Failed to create post:", err);
+      alert("Failed to save post to database. Please try again.");
+    }
+  };
+
+  // Filter posts by search query
+  const filteredPosts = posts.filter((post) =>
+    searchQuery
+      ? post.caption?.toLowerCase().includes(searchQuery.toLowerCase())
+      : true
+  );
+
   return (
-    <section className="">
-      {" "}
-      {/* Header */}{" "}
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {" "}
-        <div>
-          {" "}
-          <div className="flex items-center gap-2">
-            {" "}
-            <InstagramIcon size={22} className="text-[#E1306C]" />{" "}
-            <h2 className="text-xl font-bold text-[#24203a]">
-              {" "}
-              Follow Us on Instagram{" "}
-            </h2>{" "}
-          </div>{" "}
-          <p className="mt-1 text-sm text-stone-500">
-            {" "}
-            Latest updates from Shiv Sai Yuvak Mandal{" "}
-          </p>{" "}
-        </div>{" "}
-        <a
-          href="https://www.instagram.com/shivsaiyuvakmandal_official"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition hover:scale-[1.02]"
-        >
-          {" "}
-          <InstagramIcon size={17} /> Follow on Instagram{" "}
-          <ExternalLink size={14} />{" "}
-        </a>{" "}
-      </div>{" "}
-      {/* Loading */}{" "}
-      {loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-          {" "}
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div
-              key={index}
-              className="aspect-square animate-pulse rounded-2xl bg-stone-100"
+    <div className="w-full space-y-6">
+      {/* Top Controls Bar */}
+      <div className="rounded-3xl border border-[#ebe7f6] bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Brand Logo & Social Media Redirect Icons */}
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/ssym-logo.png"
+              alt="Shiv Sai Yuvak Mandal"
+              className="h-10 w-10 object-contain rounded-2xl border border-[#ebe7f6] bg-white p-1 shadow-sm"
             />
-          ))}{" "}
-        </div>
-      )}{" "}
-      {/* Error */}{" "}
-      {!loading && error && (
-        <div className="rounded-2xl border border-[#ebe7f6] bg-white p-8 text-center">
-          {" "}
-          <InstagramIcon
-            size={36}
-            className="mx-auto mb-3 text-stone-300"
-          />{" "}
-          <p className="font-semibold text-[#24203a]">
-            {" "}
-            Instagram posts are currently unavailable.{" "}
-          </p>{" "}
-          <p className="mt-1 text-sm text-stone-500">
-            {" "}
-            Please visit our Instagram page for the latest updates.{" "}
-          </p>{" "}
-          <a
-            href="https://www.instagram.com/shivsaiyuvakmandal_official"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-50 px-4 py-2 text-sm font-semibold text-[#7257f4] transition hover:bg-violet-100"
-          >
-            {" "}
-            Visit Instagram <ExternalLink size={14} />{" "}
-          </a>{" "}
-        </div>
-      )}{" "}
-      {/* Empty */}{" "}
-      {!loading && !error && posts.length === 0 && (
-        <div className="rounded-2xl border border-[#ebe7f6] bg-white p-8 text-center">
-          {" "}
-          <InstagramIcon
-            size={36}
-            className="mx-auto mb-3 text-stone-300"
-          />{" "}
-          <p className="font-semibold text-[#24203a]">
-            {" "}
-            No Instagram posts available.{" "}
-          </p>{" "}
-        </div>
-      )}{" "}
-      {/* Instagram Posts */}{" "}
-      {!loading && !error && posts.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-          {" "}
-          {posts.map((post) => {
-            const imageUrl =
-              post.media_type === "VIDEO" ? post.thumbnail_url : post.media_url;
-            return (
-              <a
-                key={post.id}
-                href={post.permalink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative aspect-square overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+
+            <a
+              href="https://www.instagram.com/shivsaiyuvakmandal_official"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#7257f4] via-[#bc59ec] to-[#E1306C] text-white shadow-md shadow-pink-500/10 transition-transform hover:scale-105"
+              title="Visit Official Instagram Profile"
+            >
+              <InstagramIcon size={20} />
+            </a>
+
+            <a
+              href="https://www.facebook.com/shivsaiyuvakmandal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#1877F2] text-white shadow-md shadow-blue-500/10 transition-transform hover:scale-105"
+              title="Visit Official Facebook Page"
+            >
+              <FacebookIcon size={20} />
+            </a>
+          </div>
+
+          {/* Center & Right Controls */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            {/* Compact Search Bar */}
+            <div className="relative flex-1 sm:w-48 lg:w-56 min-w-[120px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] py-1.5 pl-8 pr-7 text-xs font-medium text-[#24203a] placeholder:text-stone-400 focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* "+ Create Post" Button (Admins & Super Admins Only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] text-white shadow-md shadow-violet-200 transition-all hover:scale-105 cursor-pointer shrink-0"
+                title="Create Post"
               >
-                {" "}
-                {imageUrl ? (
+                <PlusCircle size={18} />
+              </button>
+            )}
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-2xl border border-[#ebe7f6] bg-[#f8f7fc] p-1 shrink-0">
+              <button
+                onClick={() => setViewMode("feed")}
+                className={`flex items-center justify-center rounded-xl p-1.5 transition-all cursor-pointer ${
+                  viewMode === "feed"
+                    ? "bg-white text-[#7257f4] shadow-sm"
+                    : "text-stone-500 hover:text-[#24203a]"
+                }`}
+                title="Feed View"
+              >
+                <SquareStack size={17} />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`flex items-center justify-center rounded-xl p-1.5 transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-white text-[#7257f4] shadow-sm"
+                    : "text-stone-500 hover:text-[#24203a]"
+                }`}
+                title="Grid View"
+              >
+                <Grid size={17} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading Skeleton */}
+      {loading && (
+        <div className="mx-auto max-w-md space-y-6">
+          {Array.from({ length: 2 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white p-4 shadow-sm"
+            >
+              <div className="h-48 w-full animate-pulse rounded-2xl bg-stone-100" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error State */}
+      {!loading && error && (
+        <div className="rounded-3xl border border-[#ebe7f6] bg-white p-8 text-center shadow-sm">
+          <InstagramIcon size={36} className="mx-auto mb-3 text-stone-300" />
+          <h3 className="text-sm font-bold text-[#24203a]">
+            Instagram Feed Unavailable
+          </h3>
+          <p className="mt-1 text-xs text-stone-500">
+            Visit our social profiles using the icons above.
+          </p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredPosts.length === 0 && (
+        <div className="rounded-3xl border border-[#ebe7f6] bg-white p-12 text-center shadow-sm">
+          <InstagramIcon size={36} className="mx-auto mb-2 text-stone-300" />
+          <h3 className="text-sm font-bold text-[#24203a]">No posts found</h3>
+          <p className="mt-1 text-xs text-stone-500">
+            Click &quot;+ Create Post&quot; above to add the first post!
+          </p>
+        </div>
+      )}
+
+      {/* FEED VIEW (Clean Post Cards, Stories Highlight Bar, Official Logo Avatar) */}
+      {!loading && !error && viewMode === "feed" && filteredPosts.length > 0 && (
+        <div className="mx-auto max-w-md space-y-6">
+          {/* INSTAGRAM STORIES / HIGHLIGHTS BAR */}
+          <InstagramStoriesBar posts={filteredPosts} onSelectPost={setSelectedPost} />
+
+          {filteredPosts.map((post) => {
+            const isLiked = !!likedPosts[post.id];
+            const appLikeCount = likeCounts[post.id] || 0;
+            const isVideo = post.media_type === "VIDEO";
+            const isTextOnly = post.media_type === "TEXT" || (!post.media_url && !post.thumbnail_url);
+            const imageUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
+
+            return (
+              <PostViewTracker key={post.id} postId={post.id} onVisible={recordPostView}>
+                <article
+                  className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white shadow-sm transition-all hover:shadow-md"
+                >
+                {/* Clean Post Header */}
+                <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#f7f6fc]">
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src="/ssym-logo.png"
+                      alt="SSYM Logo"
+                      className="h-8 w-8 object-contain rounded-full border border-[#ebe7f6] bg-white p-0.5 shadow-xs"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#24203a]">
+                        Shiv Sai Yuvak Mandal
+                      </span>
+                      {post.isPinned && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200/60 shadow-2xs" title="Pinned Post">
+                          <Pin size={10} className="fill-amber-600 text-amber-600" /> Pinned
+                        </span>
+                      )}
+                      {post.isScheduled && (
+                        <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200/60 shadow-2xs" title={post.scheduledAt ? `Scheduled for ${new Date(post.scheduledAt).toLocaleString()}` : "Scheduled Post"}>
+                          <Calendar size={10} className="text-blue-600" /> Scheduled
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3-Dots Action Menu (Admins / Super Admins Only for App Posts) */}
+                  {isAdmin && post.isLocal && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuPostId(openMenuPostId === post.id ? null : post.id)}
+                        className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-[#24203a] transition-colors cursor-pointer"
+                        title="Post Options"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {openMenuPostId === post.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-20"
+                            onClick={() => setOpenMenuPostId(null)}
+                          />
+                          <div className="absolute right-0 top-8 z-30 w-44 overflow-hidden rounded-2xl bg-white p-1.5 shadow-xl border border-[#ebe7f6] animate-in fade-in zoom-in-95">
+                            {/* Pin / Unpin Action */}
+                            {post.isPinned ? (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuPostId(null);
+                                  handleTogglePin(post.id, false);
+                                }}
+                                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
+                              >
+                                <Pin size={14} className="fill-amber-600 text-amber-600" /> Unpin Post
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuPostId(null);
+                                  setPinningPost(post);
+                                }}
+                                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
+                              >
+                                <Pin size={14} className="text-amber-500" /> Pin Post
+                              </button>
+                            )}
+
+                            {/* Edit Action (within 15 min) */}
+                            {(() => {
+                              const postTime = new Date(post.timestamp).getTime();
+                              const minutesPassed = (Date.now() - postTime) / (1000 * 60);
+                              const canEdit = minutesPassed <= 15;
+
+                              return canEdit ? (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuPostId(null);
+                                    handleOpenEdit(post);
+                                  }}
+                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
+                                >
+                                  <Pencil size={14} className="text-[#7257f4]" /> Edit Post
+                                </button>
+                              ) : (
+                                <button
+                                  disabled
+                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-stone-400 opacity-60 text-left cursor-not-allowed"
+                                  title="Edit expired (>15 min)"
+                                >
+                                  <Clock size={14} /> Edit expired
+                                </button>
+                              );
+                            })()}
+
+                            <div className="my-1 border-t border-[#f0ecf9]" />
+
+                            {/* Delete Action */}
+                            <button
+                              onClick={() => {
+                                setOpenMenuPostId(null);
+                                handleDeletePost(post.id);
+                              }}
+                              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                            >
+                              <Trash2 size={14} /> Delete Post
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* TEXT-ONLY POST CARD */}
+                {isTextOnly ? (
+                  <div
+                    className="p-5 select-none"
+                    onDoubleClick={() => handleDoubleTap(post.id)}
+                  >
+                    <div className="rounded-2xl border border-[#f0ecf9] bg-gradient-to-br from-[#fbfafd] via-white to-[#f7f3fe] p-5 shadow-inner">
+                      <div className="text-sm font-medium text-[#24203a] leading-relaxed">
+                        <FormattedCaption caption={post.caption} />
+                      </div>
+                    </div>
+
+                    {/* Big Heart Animation on Double Tap */}
+                    {heartAnimId === post.id && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                        <Heart
+                          size={70}
+                          className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* MEDIA POST CARD (Images / Videos / Carousel Album) */
+                  <PostMediaCarousel
+                    post={post}
+                    onDoubleTap={() => handleDoubleTap(post.id)}
+                    heartAnim={heartAnimId === post.id}
+                  />
+                )}
+
+                {/* Post Footer */}
+                <div className="p-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleToggleLike(post.id)}
+                        className="group/btn relative transition-transform active:scale-75 cursor-pointer"
+                        title={isLiked ? "Unlike" : "Like"}
+                      >
+                        <Heart
+                          size={22}
+                          className={`transition-colors duration-200 ${
+                            isLiked
+                              ? "fill-[#FF3040] text-[#FF3040] scale-110"
+                              : "text-[#24203a] hover:text-[#FF3040]"
+                          }`}
+                        />
+                      </button>
+
+                      {/* App Like Count (Clickable for Admins/Super Admins to see user names) */}
+                      {isAdmin ? (
+                        <button
+                          onClick={() => openLikersModal(post.id)}
+                          className="text-xs font-bold text-[#24203a] hover:text-[#7257f4] hover:underline cursor-pointer transition-colors"
+                          title="View users who liked this post"
+                        >
+                          {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-bold text-[#24203a]">
+                          {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
+                        </span>
+                      )}
+
+                      {/* App View Count (Visible ONLY to Admins & Super Admins) */}
+                      {isAdmin && (
+                        <button
+                          onClick={() => openViewersModal(post.id)}
+                          className="flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-[#7257f4] hover:underline cursor-pointer transition-colors ml-2 border-l border-stone-200 pl-3"
+                          title="View users who viewed this post"
+                        >
+                          <Eye size={14} className="text-stone-400" />
+                          {viewCounts[post.id] || 0} {viewCounts[post.id] === 1 ? "view" : "views"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-[10px] font-semibold tracking-wider text-stone-400 uppercase">
+                      {formatTimeAgo(post.timestamp)}
+                    </div>
+                  </div>
+
+                  {/* Caption for Media Posts */}
+                  {!isTextOnly && post.caption && (
+                    <div className="mt-2 text-xs leading-relaxed">
+                      <ExpandableCaption caption={post.caption} maxLength={100} />
+                    </div>
+                  )}
+                </div>
+              </article>
+            </PostViewTracker>
+          );
+          })}
+        </div>
+      )}
+
+      {/* GRID VIEW */}
+      {!loading && !error && viewMode === "grid" && filteredPosts.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          {filteredPosts.map((post) => {
+            const appLikeCount = likeCounts[post.id] || 0;
+            const isVideo = post.media_type === "VIDEO";
+            const isCarousel = post.media_type === "CAROUSEL_ALBUM" || (post.children?.data && post.children.data.length > 1);
+            const isTextOnly = post.media_type === "TEXT" || (!post.media_url && !post.thumbnail_url);
+            const imageUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
+
+            return (
+              <PostViewTracker key={post.id} postId={post.id} onVisible={recordPostView}>
+                <div
+                  onClick={() => setSelectedPost(post)}
+                  className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                >
+                {isTextOnly ? (
+                  <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[#7257f4] to-[#bc59ec] p-3.5 text-white">
+                    <MessageSquareText size={18} className="opacity-80" />
+                    <p className="line-clamp-3 text-xs font-bold leading-snug">
+                      {post.caption}
+                    </p>
+                    <span className="text-[9px] font-semibold opacity-75">
+                      {formatTimeAgo(post.timestamp)}
+                    </span>
+                  </div>
+                ) : imageUrl ? (
                   <img
                     src={imageUrl}
-                    alt={
-                      post.caption
-                        ? post.caption.slice(0, 120)
-                        : "Shiv Sai Yuvak Mandal Instagram post"
-                    }
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    alt={post.caption?.slice(0, 80) || "Post"}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    {" "}
-                    <InstagramIcon size={40} className="text-stone-300" />{" "}
+                    <InstagramIcon size={32} className="text-stone-300" />
                   </div>
-                )}{" "}
-                {/* Hover overlay */}{" "}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />{" "}
-                {/* Instagram icon */}{" "}
-                <div className="absolute right-3 top-3 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition group-hover:opacity-100">
-                  {" "}
-                  <InstagramIcon size={16} className="text-[#E1306C]" />{" "}
-                </div>{" "}
-                {/* Caption */}{" "}
-                {post.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 translate-y-full p-3 text-white transition-transform duration-300 group-hover:translate-y-0">
-                    {" "}
-                    <p className="line-clamp-2 text-xs font-medium">
-                      {" "}
-                      {post.caption}{" "}
-                    </p>{" "}
+                )}
+
+                {/* Multiple Images Carousel Badge for Grid Tile */}
+                {isCarousel && (
+                  <div className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white backdrop-blur-md">
+                    <SquareStack size={12} />
                   </div>
-                )}{" "}
-                {/* Video indicator */}{" "}
-                {post.media_type === "VIDEO" && (
-                  <div className="absolute left-3 top-3 rounded-full bg-black/60 px-2 py-1 text-[10px] font-semibold text-white">
-                    {" "}
-                    VIDEO{" "}
+                )}
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 flex items-center justify-center gap-4 bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                  <div className="flex items-center gap-1 text-xs font-extrabold text-white">
+                    <Heart size={16} className="fill-white text-white" />
+                    {appLikeCount}
                   </div>
-                )}{" "}
-              </a>
-            );
-          })}{" "}
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openViewersModal(post.id);
+                      }}
+                      className="flex items-center gap-1 text-xs font-extrabold text-white hover:text-amber-300 transition-colors cursor-pointer"
+                      title="Click to see members who viewed this post"
+                    >
+                      <Eye size={16} />
+                      {viewCounts[post.id] || 0}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </PostViewTracker>
+          );
+          })}
         </div>
-      )}{" "}
-    </section>
+      )}
+
+      {/* LIGHTBOX PREVIEW MODAL */}
+      {selectedPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in cursor-pointer select-none"
+          onClick={() => setSelectedPost(null)}
+        >
+          {/* Top-Right Floating Screen Close Button */}
+          <button
+            onClick={() => setSelectedPost(null)}
+            className="absolute top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:bg-white/40 hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
+            title="Close preview (Esc)"
+          >
+            <X size={22} />
+          </button>
+
+          <div
+            className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedPost(null)}
+              className="absolute top-3 right-3 z-40 rounded-full bg-black/60 p-2 text-white backdrop-blur-md hover:bg-black/80 shadow-md cursor-pointer transition-transform hover:scale-110"
+              title="Close preview"
+            >
+              <X size={18} />
+            </button>
+
+            {selectedPost.media_type === "TEXT" || (!selectedPost.media_url && !selectedPost.thumbnail_url) ? (
+              <div className="p-8 bg-gradient-to-br from-[#7257f4] to-[#bc59ec] text-white">
+                <div className="flex items-center gap-2 mb-3">
+                  <img
+                    src="/ssym-logo.png"
+                    alt="SSYM Logo"
+                    className="h-8 w-8 object-contain rounded-full border border-white/30 bg-white p-0.5"
+                  />
+                  <span className="text-xs font-bold">Shiv Sai Yuvak Mandal</span>
+                </div>
+                <p className="text-base font-semibold leading-relaxed">
+                  {selectedPost.caption}
+                </p>
+              </div>
+            ) : (
+              <PostMediaCarousel post={selectedPost} />
+            )}
+
+            <div className="p-4 border-t border-[#f4f2fa]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleLike(selectedPost.id)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#24203a] active:scale-95 transition-transform"
+                    title={likedPosts[selectedPost.id] ? "Unlike" : "Like"}
+                  >
+                    <Heart
+                      size={18}
+                      className={
+                        likedPosts[selectedPost.id]
+                          ? "fill-[#FF3040] text-[#FF3040]"
+                          : "text-[#24203a]"
+                      }
+                    />
+                  </button>
+
+                  {isAdmin ? (
+                    <button
+                      onClick={() => openLikersModal(selectedPost.id)}
+                      className="text-xs font-bold text-[#24203a] hover:text-[#7257f4] hover:underline cursor-pointer"
+                      title="View users who liked this post"
+                    >
+                      {(likeCounts[selectedPost.id] || 0)} likes
+                    </button>
+                  ) : (
+                    <span className="text-xs font-bold text-[#24203a]">
+                      {(likeCounts[selectedPost.id] || 0)} likes
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-[10px] text-stone-400 font-medium">
+                  {formatTimeAgo(selectedPost.timestamp)}
+                </span>
+              </div>
+
+              {selectedPost.media_type !== "TEXT" && selectedPost.caption && (
+                <div className="mt-2 text-xs">
+                  <FormattedCaption caption={selectedPost.caption} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE POST MODAL DIALOG */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border border-[#ebe7f6] custom-scrollbar">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
+              <h3 className="text-base font-bold text-[#24203a]">
+                Create SSYM App Post
+              </h3>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreatePost} className="mt-4 space-y-4">
+              {/* Text / Caption Input (Primary) */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                  What&apos;s on your mind? (Text Post)
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="Type your message, announcement or hashtags (#shivsaiyuvakmandal)..."
+                  value={newCaption}
+                  onChange={(e) => setNewCaption(e.target.value)}
+                  className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] p-3 text-xs text-[#24203a] placeholder:text-stone-400 focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+                />
+              </div>
+
+              {/* Optional Media File Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                  Attach Photo / Video <span className="font-normal text-stone-400">(Optional)</span>
+                </label>
+                <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#ebe7f6] bg-[#fbfafd] p-3 text-center hover:bg-[#f7f4fd] transition-colors">
+                  {previewFile ? (
+                    <div className="relative h-36 w-full overflow-hidden rounded-xl bg-black">
+                      {newMediaType === "VIDEO" ? (
+                        <video src={previewFile} className="h-full w-full object-contain" controls />
+                      ) : (
+                        <img src={previewFile} alt="Preview" className="h-full w-full object-contain" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewFile(null);
+                          setNewMediaUrl("");
+                          setNewMediaType("TEXT");
+                        }}
+                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer flex-col items-center justify-center py-2">
+                      <Upload size={20} className="text-[#7257f4] mb-1" />
+                      <span className="text-xs font-bold text-[#24203a]">
+                        Upload Image or Video
+                      </span>
+                      <span className="text-[10px] text-stone-400 mt-0.5">
+                        PNG, JPG, MP4 supported
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Pin Option for Admins */}
+              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3">
+                <label className="flex items-center justify-between cursor-pointer select-none">
+                  <span className="text-xs font-bold text-[#24203a] flex items-center gap-1.5">
+                    <Pin size={14} className="text-amber-600 fill-amber-500" /> Pin to Top & Stories
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isCreatePinned}
+                    onChange={(e) => setIsCreatePinned(e.target.checked)}
+                    className="h-4 w-4 rounded accent-[#7257f4]"
+                  />
+                </label>
+
+                {isCreatePinned && (
+                  <div className="mt-2.5 pt-2 border-t border-amber-200/60 flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-stone-600">Duration:</span>
+                    {(["24h", "7d", "PERMANENT"] as const).map((dur) => (
+                      <button
+                        key={dur}
+                        type="button"
+                        onClick={() => setCreatePinDuration(dur)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                          createPinDuration === dur
+                            ? "bg-[#7257f4] text-white shadow-sm"
+                            : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        {dur === "24h" ? "24 Hours" : dur === "7d" ? "7 Days" : "Until Changed"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Schedule Option for Admins */}
+              <div className="rounded-2xl border border-violet-200/80 bg-[#f9f7fe] p-3.5 space-y-2">
+                <label className="flex items-center justify-between cursor-pointer select-none">
+                  <span className="text-xs font-bold text-[#24203a] flex items-center gap-1.5">
+                    <Calendar size={15} className="text-[#7257f4]" /> Schedule Post for Later
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isCreateScheduled}
+                    onChange={(e) => {
+                      setIsCreateScheduled(e.target.checked);
+                      if (e.target.checked && !createScheduledAt) {
+                        const defaultDate = new Date(Date.now() + 60 * 60 * 1000);
+                        const localIso = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                        setCreateScheduledAt(localIso);
+                      }
+                    }}
+                    className="h-4 w-4 rounded accent-[#7257f4]"
+                  />
+                </label>
+
+                {isCreateScheduled && (
+                  <div className="pt-2 border-t border-[#ebe3fa] space-y-2 animate-in fade-in">
+                    <label className="block text-[11px] font-bold text-[#24203a]">
+                      Publish Date & Time:
+                    </label>
+                    <SSYMCalendarPicker
+                      value={createScheduledAt}
+                      onChange={setCreateScheduledAt}
+                    />
+                    <p className="text-[10px] font-medium text-stone-400">
+                      Post will be hidden from members until the scheduled time arrives.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-2xl px-4 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newCaption.trim() && !newMediaUrl.trim()}
+                  className="rounded-2xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] px-5 py-2 text-xs font-bold text-white shadow-md shadow-violet-200 disabled:opacity-50 transition-all hover:scale-105"
+                >
+                  {isCreateScheduled ? "Schedule Post" : "Publish Post"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PIN DURATION MODAL DIALOG */}
+      {pinningPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-[#ebe7f6]">
+            <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
+              <h3 className="text-base font-bold text-[#24203a] flex items-center gap-2">
+                <Pin size={18} className="text-amber-500 fill-amber-500" /> Pin Post Options
+              </h3>
+              <button
+                onClick={() => setPinningPost(null)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-stone-600 font-medium leading-relaxed">
+              Choose how long this post should stay pinned at the top of the feed and featured in story highlights:
+            </p>
+
+            <div className="mt-4 space-y-2.5">
+              {[
+                { key: "24h", label: "24 Hours", desc: "Unpins automatically after 24 hours" },
+                { key: "7d", label: "7 Days", desc: "Unpins automatically after 7 days" },
+                { key: "PERMANENT", label: "Until Changed", desc: "Stays pinned until manually unpinned" },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => handleTogglePin(pinningPost.id, true, opt.key as "24h" | "7d" | "PERMANENT")}
+                  className="w-full text-left p-3.5 rounded-2xl border border-[#f0ecf9] bg-[#fbfafd] hover:bg-[#f5f0fe] hover:border-[#7257f4]/40 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div>
+                    <p className="text-xs font-bold text-[#24203a] group-hover:text-[#7257f4]">{opt.label}</p>
+                    <p className="text-[10px] text-stone-400 mt-0.5">{opt.desc}</p>
+                  </div>
+                  <Pin size={15} className="text-stone-300 group-hover:text-[#7257f4] transition-colors" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT POST MODAL DIALOG (Admins & Super Admins Only, 15 Min Limit) */}
+      {editingPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-[#ebe7f6]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
+              <h3 className="text-base font-bold text-[#24203a] flex items-center gap-2">
+                <Pencil size={16} className="text-[#7257f4]" /> Edit Post
+              </h3>
+              <button
+                onClick={() => setEditingPost(null)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="mt-2.5 text-[11px] text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200/60 font-semibold flex items-center gap-1.5">
+              <Clock size={13} className="text-amber-600 shrink-0" /> Edit time limit: Posts can only be edited within 15 minutes of creation.
+            </p>
+
+            {/* Modal Form */}
+            <form onSubmit={handleEditPost} className="mt-4 space-y-4">
+              {/* Caption Input */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                  Edit Text / Caption
+                </label>
+                <textarea
+                  rows={4}
+                  value={editCaption}
+                  onChange={(e) => setEditCaption(e.target.value)}
+                  className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] p-3 text-xs text-[#24203a] focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+                />
+              </div>
+
+              {/* Optional Media File Update */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                  Update Photo / Video <span className="font-normal text-stone-400">(Optional)</span>
+                </label>
+                <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#ebe7f6] bg-[#fbfafd] p-3 text-center">
+                  {editPreviewFile ? (
+                    <div className="relative h-36 w-full overflow-hidden rounded-xl bg-black">
+                      {editMediaType === "VIDEO" ? (
+                        <video src={editPreviewFile} className="h-full w-full object-contain" controls />
+                      ) : (
+                        <img src={editPreviewFile} alt="Preview" className="h-full w-full object-contain" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditPreviewFile(null);
+                          setEditMediaUrl("");
+                          setEditMediaType("TEXT");
+                        }}
+                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer flex-col items-center justify-center py-2">
+                      <Upload size={20} className="text-[#7257f4] mb-1" />
+                      <span className="text-xs font-bold text-[#24203a]">
+                        Change Image or Video
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleEditFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPost(null)}
+                  className="rounded-2xl px-4 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] px-5 py-2 text-xs font-bold text-white shadow-md shadow-violet-200 transition-all hover:scale-105"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIKERS MODAL (Admins & Super Admins Only) */}
+      {likersModalPostId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#ebe7f6]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#f0ecf9] px-5 py-4">
+              <h3 className="text-sm font-bold text-[#24203a] flex items-center gap-2">
+                <Heart size={16} className="fill-[#FF3040] text-[#FF3040]" /> Liked by
+              </h3>
+              <button
+                onClick={() => setLikersModalPostId(null)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="max-h-80 overflow-y-auto p-4 space-y-2.5">
+              {loadingLikers ? (
+                <div className="flex items-center justify-center py-8 text-xs font-medium text-stone-500">
+                  Loading users...
+                </div>
+              ) : likers.length === 0 ? (
+                <div className="py-8 text-center text-xs font-medium text-stone-400">
+                  No likes yet for this post.
+                </div>
+              ) : (
+                likers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between rounded-2xl border border-[#f5f2fa] bg-[#faf8fc] p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-sm">
+                        {user.name?.slice(0, 2).toUpperCase() || "U"}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#24203a]">{user.name}</p>
+                        {user.mobileNumber && (
+                          <p className="text-[10px] text-stone-400">{user.mobileNumber}</p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-[#7257f4] uppercase">
+                      {user.role === "SUPER_ADMIN"
+                        ? "Super Admin"
+                        : user.role === "ADMIN"
+                        ? "Admin"
+                        : "Member"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEWERS MODAL DIALOG (Admins & Super Admins Only) */}
+      {viewersModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#ebe7f6]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#f4f2fa] p-4">
+              <h3 className="text-sm font-bold text-[#24203a] flex items-center gap-2">
+                <Eye size={16} className="text-[#7257f4]" />
+                Viewed By ({viewersList.length})
+              </h3>
+              <button
+                onClick={() => setViewersModalOpen(false)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="max-h-80 overflow-y-auto p-4 space-y-2.5">
+              {viewersLoading ? (
+                <div className="flex items-center justify-center py-8 text-xs font-medium text-stone-500">
+                  Loading viewers...
+                </div>
+              ) : viewersList.length === 0 ? (
+                <div className="py-8 text-center text-xs font-medium text-stone-400">
+                  No views recorded yet for this post.
+                </div>
+              ) : (
+                viewersList.map((viewer) => (
+                  <div
+                    key={viewer.id}
+                    className="flex items-center justify-between rounded-2xl border border-[#f5f2fa] bg-[#faf8fc] p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-sm">
+                        {viewer.name?.slice(0, 2).toUpperCase() || "U"}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#24203a]">{viewer.name}</p>
+                        {viewer.mobileNumber && (
+                          <p className="text-[10px] text-stone-400">{viewer.mobileNumber}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-[#7257f4] uppercase">
+                        {viewer.role === "SUPER_ADMIN"
+                          ? "Super Admin"
+                          : viewer.role === "ADMIN"
+                          ? "Admin"
+                          : "Member"}
+                      </span>
+                      <p className="text-[9px] text-stone-400 mt-1">
+                        {formatTimeAgo(viewer.viewedAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
