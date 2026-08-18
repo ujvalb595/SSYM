@@ -156,6 +156,7 @@ export default async function MembersPage() {
           id: u.id,
           name: u.name,
           mobile: u.mobileNumber || "N/A",
+          image: u.image,
           birthDate,
           rawBirthDate,
           bloodGroup: blood,

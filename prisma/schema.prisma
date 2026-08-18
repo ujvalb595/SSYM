@@ -51,6 +51,7 @@ model User {
 
   // Personal Details
   name             String
+  image            String?
   birthDate        DateTime?
   bloodGroup       BloodGroup?
 
@@ -81,6 +82,8 @@ model User {
   auditLogs          AuditLog[]
   expenses           Expense[]
   donations          Donation[]           @relation("CreatedDonations")
+  posts              Post[]               @relation("UserPosts")
+  postViews          PostView[]
 }
 
 model Expense {
@@ -190,3 +193,55 @@ model AuditLog {
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
+
+enum PostMediaType {
+  IMAGE
+  VIDEO
+  TEXT
+}
+
+model Post {
+  id          String        @id @default(cuid())
+  caption     String?
+  mediaType   PostMediaType @default(TEXT)
+  mediaUrl    String?       @db.Text
+  createdById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  isPinned    Boolean       @default(false)
+  pinnedUntil DateTime?
+
+  scheduledAt DateTime?
+
+  createdBy   User?         @relation("UserPosts", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([isPinned])
+  @@index([scheduledAt])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostView {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+

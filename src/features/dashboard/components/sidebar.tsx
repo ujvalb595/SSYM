@@ -8,15 +8,34 @@ import {
   ChartNoAxesCombined,
   CreditCard,
   HeartHandshake,
-  Home,
   LayoutDashboard,
   ShieldCheck,
   UsersRound,
   X,
 } from "lucide-react";
 
+function InstagramIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
 const links = [
-  [Home, "Home", "/home"],
+  [InstagramIcon, "Social", "/social"],
   [LayoutDashboard, "Dashboard", "/dashboard"],
   [UsersRound, "Members", "/members"],
   [CreditCard, "Payments", "/payments"],
@@ -63,9 +82,11 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       >
         <div className="flex h-20 items-center justify-between border-b border-[#f0edf8] px-7">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#7257f4] to-[#bc59ec] text-lg font-black text-white shadow-lg shadow-violet-200">
-              SS
-            </span>
+            <img
+              src="/ssym-logo.png"
+              alt="SSYM Logo"
+              className="h-10 w-10 object-contain drop-shadow-sm"
+            />
 
             <div>
               <p className="font-bold tracking-tight">SSYM</p>

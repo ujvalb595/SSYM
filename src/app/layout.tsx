@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Shiv Sai Yuvak Mandal",
   description: "Unity is our strength. Together, we grow stronger.",
+  icons: {
+    icon: "/ssym-logo.png",
+    apple: "/ssym-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

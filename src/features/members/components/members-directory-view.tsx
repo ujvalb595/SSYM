@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search, User, UsersRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, UsersRound, X } from "lucide-react";
 import { AddMemberDialog } from "./add-member-dialog";
 import { MemberActions } from "./member-actions";
 
@@ -10,6 +10,7 @@ export interface MemberRowData {
   id: string;
   name: string;
   mobile: string;
+  image?: string | null;
   birthDate: string;
   rawBirthDate?: string;
   bloodGroup: string;
@@ -149,9 +150,17 @@ export function MembersDirectoryView({
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-xs font-bold text-[#7657f6]">
-                          {m.initials}
-                        </span>
+                        {m.image ? (
+                          <img
+                            src={m.image}
+                            alt={m.name}
+                            className="size-9 rounded-xl object-cover ring-1 ring-violet-200 shrink-0"
+                          />
+                        ) : (
+                          <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-xs font-bold text-[#7657f6] shrink-0">
+                            {m.initials}
+                          </span>
+                        )}
                         <Link
                           href={`/members/${m.id}`}
                           className="font-semibold text-[#302a49] hover:text-[#7257f4] hover:underline"

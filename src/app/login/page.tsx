@@ -47,7 +47,7 @@ export default function LoginPage() {
       mobileNumber,
       password,
       redirect: false,
-      callbackUrl: "/dashboard",
+      callbackUrl: "/social",
     });
     if (result?.error) {
       setError("Invalid mobile number or password.");
@@ -55,7 +55,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.replace("/dashboard");
+    window.location.replace("/social");
   }
 
   return (
@@ -68,9 +68,11 @@ export default function LoginPage() {
         <div className="flex min-h-[590px] items-center p-7 sm:p-12">
           <div className="w-full">
             <div className="mb-9 md:hidden">
-              <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#5d47d9] to-[#c05ce9] font-black text-white">
-                S
-              </div>
+              <img
+                src="/ssym-logo.png"
+                alt="SSYM Logo"
+                className="h-11 w-11 object-contain drop-shadow-md"
+              />
               <p className="mt-3 font-bold">SSYM</p>
             </div>
             <p className="text-sm font-semibold text-[#7657f6]">WELCOME BACK</p>

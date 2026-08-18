@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 
-const INSTAGRAM_API_URL = "https://graph.instagram.com/shivsaiyuvakmandal_official/media";
-
 export async function GET() {
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-  const instagramUserId = process.env.INSTAGRAM_USER_ID;
+  const instagramUserId = process.env.INSTAGRAM_USER_ID || "me";
 
-  if (!accessToken || !instagramUserId) {
+  if (!accessToken) {
     return NextResponse.json(
-      {
-        error: "Instagram API credentials are not configured.",
-      },
+      { error: "Instagram API access token is not configured." },
       { status: 500 }
     );
   }
+
+  const isFacebookToken = accessToken.startsWith("EAA");
+  const baseUrl = isFacebookToken
+    ? "https://graph.facebook.com/v18.0"
+    : "https://graph.instagram.com";
 
   try {
     const fields = [
@@ -25,14 +26,14 @@ export async function GET() {
       "thumbnail_url",
       "permalink",
       "timestamp",
+      "like_count",
+      "comments_count",
+      "children{id,media_type,media_url,thumbnail_url}",
     ].join(",");
 
-    const url = new URL(
-      `${INSTAGRAM_API_URL}/${instagramUserId}/media`
-    );
-
+    const url = new URL(`${baseUrl}/${instagramUserId}/media`);
     url.searchParams.set("fields", fields);
-    url.searchParams.set("limit", "8");
+    url.searchParams.set("limit", "100");
     url.searchParams.set("access_token", accessToken);
 
     const response = await fetch(url.toString(), {
@@ -48,7 +49,7 @@ export async function GET() {
 
       return NextResponse.json(
         {
-          error: "Unable to fetch Instagram posts.",
+          error: "Unable to fetch dynamic Instagram posts.",
           details: data?.error?.message,
         },
         { status: response.status }
@@ -63,7 +64,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        error: "Failed to fetch Instagram posts.",
+        error: "Failed to fetch dynamic Instagram posts.",
       },
       { status: 500 }
     );

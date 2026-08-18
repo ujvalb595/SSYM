@@ -5,8 +5,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 const updateMemberSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  mobile: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number."),
+  name: z.string().trim().min(2).max(100).optional(),
+  mobile: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number.").optional(),
+  image: z.string().optional().nullable(),
   birthDate: z.string().optional().nullable(),
   bloodGroup: z.nativeEnum(BloodGroup).optional().nullable(),
   password: z.string().min(8).max(100).optional().or(z.literal("")),
@@ -43,40 +44,42 @@ export async function PATCH(
     );
   }
 
-  const { name, mobile, birthDate, bloodGroup, password, role, isActive } = parsed.data;
+  const { name, mobile, image, birthDate, bloodGroup, password, role, isActive } = parsed.data;
 
-  // Check if mobile number is used by another user
-  const existing = await prisma.user.findFirst({
-    where: {
-      mobileNumber: mobile,
-      NOT: { id },
-    },
-  });
+  // Check if mobile number is used by another user (only if admin is changing mobile)
+  if (isAdminOrSuperAdmin && mobile) {
+    const existing = await prisma.user.findFirst({
+      where: {
+        mobileNumber: mobile,
+        NOT: { id },
+      },
+    });
 
-  if (existing) {
-    return Response.json(
-      { message: "This mobile number is already registered to another user." },
-      { status: 409 }
-    );
+    if (existing) {
+      return Response.json(
+        { message: "This mobile number is already registered to another user." },
+        { status: 409 }
+      );
+    }
   }
 
   try {
     const updateData: Prisma.UserUpdateInput = {
-      name,
-      mobileNumber: mobile,
       bloodGroup: bloodGroup || null,
       birthDate: birthDate ? new Date(birthDate) : null,
       updatedBy: { connect: { id: session.user.id } },
     };
 
-    if (isAdminOrSuperAdmin) {
-      if (role) {
-        updateData.role = role;
-      }
+    if (image !== undefined) {
+      updateData.image = image;
+    }
 
-      if (typeof isActive === "boolean") {
-        updateData.isActive = isActive;
-      }
+    // ONLY Admin and Super Admin can change name & mobileNumber
+    if (isAdminOrSuperAdmin) {
+      if (name) updateData.name = name;
+      if (mobile) updateData.mobileNumber = mobile;
+      if (role) updateData.role = role;
+      if (typeof isActive === "boolean") updateData.isActive = isActive;
     }
 
     if (password && password.length >= 8) {
@@ -90,6 +93,7 @@ export async function PATCH(
         id: true,
         name: true,
         mobileNumber: true,
+        image: true,
         birthDate: true,
         bloodGroup: true,
         role: true,
