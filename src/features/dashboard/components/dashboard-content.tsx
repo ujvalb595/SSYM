@@ -105,7 +105,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {metrics.map(([label, value, trend, Icon, tone], index) => (
           <article
             key={label}
@@ -127,16 +127,13 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
       </div>
 
       {/* Chart & Collection Progress Section */}
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
         <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:col-span-2">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-[#24203a]">Monthly Collection</h3>
               <p className="text-sm text-stone-500">Payment collection history over recent months</p>
             </div>
-            <span className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-[#7257f4]">
-              Real-time DB
-            </span>
           </div>
           <CollectionChart data={data?.chartData} />
         </article>
@@ -166,9 +163,9 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
       </div>
 
       {/* Recent Payments & Upcoming Events Section */}
-      <div className="mt-6 grid gap-6 xl:grid-cols-5">
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
         {/* Recent Payments */}
-        <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:col-span-3">
+        <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-[#24203a]">Recent Payments</h3>
@@ -187,7 +184,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
                     <th className="py-3 font-medium">Member</th>
                     <th className="py-3 font-medium">Month</th>
                     <th className="py-3 font-medium">Amount</th>
-                    <th className="py-3 font-medium">Status</th>
+                    <th className="py-3 font-medium text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -196,7 +193,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
                       <td className="py-3 font-semibold text-[#24203a]">{p.memberName}</td>
                       <td className="py-3 text-stone-500">{p.monthYear}</td>
                       <td className="py-3 font-semibold">₹{p.amount.toLocaleString("en-IN")}</td>
-                      <td className="py-3">
+                      <td className="py-3 text-right">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                             p.status === "Approved"
@@ -225,7 +222,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
         </article>
 
         {/* Upcoming Birthdays */}
-        <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:col-span-2">
+        <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-[#24203a]">Upcoming Birthdays</h3>

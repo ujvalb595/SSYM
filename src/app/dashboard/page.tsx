@@ -7,6 +7,12 @@ import {
   type DashboardData,
 } from "@/features/dashboard/components/dashboard-content";
 
+export interface ChartItem {
+  month: string;
+  collected: number;
+  pending: number;
+}
+
 export default async function DashboardPage() {
   const session = await auth();
 
@@ -19,7 +25,7 @@ export default async function DashboardPage() {
     monthlyCollectionSum: 0,
     totalPaymentsReceived: 0,
     totalDonationsReceived: 0,
-    pendingPaymentsCount: 0,
+
     totalExpenses: 0,
     targetCollection: 50000,
     recentPayments: [],
@@ -193,18 +199,42 @@ export default async function DashboardPage() {
         .slice(0, 5)
         .map(({ sortDate, ...birthday }) => birthday);
 
-      // 9. Monthly Chart collections for past 6 months
-      const chartData: { month: string; amount: number }[] = [];
+      
+      // 9. Monthly Collection Chart - Financial Year (Oct to Sep)
+      // Monthly target = total members × ₹500
+      const monthlyMemberTarget = totalMembersCount * 500;
 
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(
-          now.getFullYear(),
-          now.getMonth() - i,
-          1
-        );
+      const financialYearMonths = [
+        { month: 10, label: "OCT" },
+        { month: 11, label: "NOV" },
+        { month: 12, label: "DEC" },
+        { month: 1, label: "JAN" },
+        { month: 2, label: "FEB" },
+        { month: 3, label: "MAR" },
+        { month: 4, label: "APR" },
+        { month: 5, label: "MAY" },
+        { month: 6, label: "JUN" },
+        { month: 7, label: "JUL" },
+        { month: 8, label: "AUG" },
+        { month: 9, label: "SEP" },
+      ];
 
-        const m = d.getMonth() + 1;
-        const y = d.getFullYear();
+      // Determine the financial year containing the current date.
+      // Oct-Dec belong to currentYear, Jan-Sep belong to previous year's FY.
+      const financialYearStart =
+        currentMonth >= 10 ? currentYear : currentYear - 1;
+
+      const chartData: {
+        month: string;
+        collected: number;
+        pending: number;
+      }[] = [];
+
+      for (const item of financialYearMonths) {
+        const year =
+          item.month >= 10
+            ? financialYearStart
+            : financialYearStart + 1;
 
         const agg = await prisma.payment.aggregate({
           _sum: {
@@ -212,14 +242,20 @@ export default async function DashboardPage() {
           },
           where: {
             status: "APPROVED",
-            month: m,
-            year: y,
+            month: item.month,
+            year,
           },
         });
 
+        const collected = Number(agg._sum.amount ?? 0);
+
+        // Pending can never be negative.
+        const pending = Math.max(monthlyMemberTarget - collected, 0);
+
         chartData.push({
-          month: monthNames[m - 1],
-          amount: Number(agg._sum.amount ?? 0),
+          month: item.label,
+          collected,
+          pending,
         });
       }
 
@@ -228,13 +264,13 @@ export default async function DashboardPage() {
         monthlyCollectionSum,
         totalPaymentsReceived,
         totalDonationsReceived,
-        pendingPaymentsCount,
         totalExpenses,
-        targetCollection: 50000,
+        targetCollection: monthlyMemberTarget,
         recentPayments,
         upcomingBirthdays,
         chartData,
       };
+
     } catch (e) {
       console.error("Dashboard DB Query Error:", e);
     }
