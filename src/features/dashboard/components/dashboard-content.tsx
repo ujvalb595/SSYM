@@ -24,8 +24,10 @@ const CollectionChart = dynamic(
 export interface DashboardData {
   totalMembersCount: number;
   monthlyCollectionSum: number;
+  totalPaymentsReceived: number;
+  totalDonationsReceived: number;
   pendingPaymentsCount: number;
-  totalExpensesCount: number;
+  totalExpenses: number;
   targetCollection: number;
   recentPayments: {
     id: string;
@@ -34,21 +36,25 @@ export interface DashboardData {
     amount: number;
     status: string;
   }[];
-  upcomingEvents: {
+  upcomingBirthdays: {
     id: string;
-    title: string;
+    memberName: string;
     dateDay: string;
     dateMonth: string;
-    timeVenue: string;
+    age: number;
   }[];
   chartData: ChartItem[];
 }
 
 export function DashboardContent({ data }: { data?: DashboardData }) {
-  const totalMembers = data?.totalMembersCount ?? 0;
+  const totalPaymentsReceived = data?.totalPaymentsReceived ?? 0;
+  const totalDonationsReceived = data?.totalDonationsReceived ?? 0;
+
+  const totalIncome = totalPaymentsReceived + totalDonationsReceived;
+
   const monthlyCollection = data?.monthlyCollectionSum ?? 0;
   const pendingPayments = data?.pendingPaymentsCount ?? 0;
-  const totalExpenses = data?.totalExpensesCount ?? 0;
+  const totalExpenses = data?.totalExpenses ?? 0;
   const targetCollection = data?.targetCollection || 50000;
 
   const collectionPercent =
@@ -60,16 +66,23 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
 
   const metrics = [
     [
-      "Total Members",
-      totalMembers.toString(),
-      totalMembers > 0 ? `${totalMembers} registered members` : "No members registered",
-      UsersRound,
+      "Total Income",
+      `₹ ${totalIncome.toLocaleString("en-IN")}`,
+      `Payments + Donations`,
+      IndianRupee,
       "bg-violet-100 text-violet-600",
     ],
     [
-      "Monthly Collection",
-      `₹ ${monthlyCollection.toLocaleString("en-IN")}`,
-      "August 2026 Collection",
+      "Total Expenses",
+      `₹ ${totalExpenses.toLocaleString("en-IN")}`,
+      "Recorded activity",
+      CheckCircle2,
+      "bg-emerald-100 text-emerald-700",
+    ],
+    [
+      "Total Donations",
+      `₹ ${totalDonationsReceived.toLocaleString("en-IN")}`,
+      "All donations received",
       IndianRupee,
       "bg-fuchsia-100 text-fuchsia-600",
     ],
@@ -80,13 +93,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
       Clock3,
       "bg-rose-100 text-rose-700",
     ],
-    [
-      "Total Expenses",
-      totalExpenses.toString(),
-      "Recorded activity",
-      CheckCircle2,
-      "bg-emerald-100 text-emerald-700",
-    ],
+    
   ] as const;
 
   const currentMonthYearName = new Date().toLocaleDateString("en-US", {
@@ -235,36 +242,54 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
           )}
         </article>
 
-        {/* Upcoming Events */}
+        {/* Upcoming Birthdays */}
         <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:col-span-2">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-[#24203a]">Upcoming Events</h3>
-              <p className="text-sm text-stone-500">Mandal scheduled events</p>
+              <h3 className="font-bold text-[#24203a]">Upcoming Birthdays</h3>
+              <p className="text-sm text-stone-500">Members celebrating soon</p>
             </div>
-            <Link href="/events" className="text-sm font-semibold text-[#7257f4] hover:underline">
+
+            <Link
+              href="/members"
+              className="text-sm font-semibold text-[#7257f4] hover:underline"
+            >
               View all
             </Link>
           </div>
 
           <div className="mt-5 space-y-4">
-            {data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
-              data.upcomingEvents.map((ev) => (
-                <div key={ev.id} className="flex gap-3 items-center">
-                  <span className="flex flex-col items-center justify-center rounded-xl bg-violet-50 px-3 py-2 text-center text-xs font-bold text-[#7257f4]">
-                    {ev.dateDay}
-                    <span className="font-medium text-stone-500">{ev.dateMonth}</span>
+            {data?.upcomingBirthdays && data.upcomingBirthdays.length > 0 ? (
+              data.upcomingBirthdays.map((birthday) => (
+                <div
+                  key={birthday.id}
+                  className="flex items-center gap-3"
+                >
+                  <span className="flex min-w-[58px] flex-col items-center justify-center rounded-xl bg-violet-50 px-3 py-2 text-center text-xs font-bold text-[#7257f4]">
+                    {birthday.dateDay}
+                    <span className="font-medium text-stone-500">
+                      {birthday.dateMonth}
+                    </span>
                   </span>
-                  <div>
-                    <p className="font-semibold text-[#24203a]">{ev.title}</p>
-                    <p className="text-xs text-stone-500">{ev.timeVenue}</p>
+
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[#24203a]">
+                      {birthday.memberName}
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      Turning {birthday.age}
+                    </p>
                   </div>
                 </div>
               ))
             ) : (
               <div className="py-8 text-center">
-                <p className="text-sm font-semibold text-stone-600">No upcoming events scheduled</p>
-                <p className="mt-1 text-xs text-stone-400">New events added will display here.</p>
+                <p className="text-sm font-semibold text-stone-600">
+                  No upcoming birthdays
+                </p>
+                <p className="mt-1 text-xs text-stone-400">
+                  Member birthdays will appear here.
+                </p>
               </div>
             )}
           </div>
