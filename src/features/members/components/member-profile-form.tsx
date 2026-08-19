@@ -299,12 +299,7 @@ export function MemberProfileForm({
         </div>
       </section>
 
-      {/* 2. Month-Wise Payment Status Box */}
-      {canViewPaymentStatus && (
-        <MemberPaymentStatusCard payments={formattedPayments} />
-      )}
-
-      {/* 3. Member Profile Form / Edit Card */}
+      {/* 2. Member Profile Form / Edit Card */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Details */}
         <div className="rounded-2xl border border-white bg-white p-6 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
@@ -425,6 +420,10 @@ export function MemberProfileForm({
           </div>
         )}
 
+        {canViewPaymentStatus && (
+        <MemberPaymentStatusCard payments={formattedPayments} />
+      )}
+
         {/* Reset Password */}
         <div className="rounded-2xl border border-white bg-white p-6 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
           <h3 className="text-lg font-bold text-[#24203a] mb-1">Reset Password</h3>
@@ -475,6 +474,7 @@ export function MemberProfileForm({
           </button>
         </div>
       </form>
+      
 
       {/* Delete Confirmation Dialog */}
       {deleteOpen && (

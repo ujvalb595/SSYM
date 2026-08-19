@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
-  Clock3,
   IndianRupee,
   UsersRound,
 } from "lucide-react";
@@ -26,7 +25,6 @@ export interface DashboardData {
   monthlyCollectionSum: number;
   totalPaymentsReceived: number;
   totalDonationsReceived: number;
-  pendingPaymentsCount: number;
   totalExpenses: number;
   targetCollection: number;
   recentPayments: {
@@ -53,7 +51,6 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
   const totalIncome = totalPaymentsReceived + totalDonationsReceived;
 
   const monthlyCollection = data?.monthlyCollectionSum ?? 0;
-  const pendingPayments = data?.pendingPaymentsCount ?? 0;
   const totalExpenses = data?.totalExpenses ?? 0;
   const targetCollection = data?.targetCollection || 50000;
 
@@ -85,13 +82,6 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
       "All donations received",
       IndianRupee,
       "bg-fuchsia-100 text-fuchsia-600",
-    ],
-    [
-      "Pending Payments",
-      pendingPayments.toString(),
-      pendingPayments > 0 ? "Requires review" : "All cleared",
-      Clock3,
-      "bg-rose-100 text-rose-700",
     ],
     
   ] as const;
@@ -125,16 +115,8 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
               <span className={`rounded-2xl p-3 ${tone}`}>
                 <Icon size={21} />
               </span>
-              <span
-                className={`flex items-center text-xs font-semibold ${
-                  index === 2 && pendingPayments > 0 ? "text-rose-600" : "text-emerald-600"
-                }`}
-              >
-                {index === 2 && pendingPayments > 0 ? (
-                  <ArrowDownRight size={15} />
-                ) : (
-                  <ArrowUpRight size={15} />
-                )}
+              <span className="flex items-center text-xs font-semibold text-emerald-600">
+                <ArrowUpRight size={15} />
               </span>
             </div>
             <p className="mt-5 text-sm font-medium text-stone-500">{label}</p>
