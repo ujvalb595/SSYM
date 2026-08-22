@@ -25,7 +25,6 @@ export default async function DashboardPage() {
     monthlyCollectionSum: 0,
     totalPaymentsReceived: 0,
     totalDonationsReceived: 0,
-
     totalExpenses: 0,
     targetCollection: 50000,
     recentPayments: [],
@@ -39,86 +38,103 @@ export default async function DashboardPage() {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      // 1. Total Members count
-      const totalMembersCount = await prisma.user.count();
+      // Determine the financial year containing the current date (Oct to Sep).
+      const financialYearStart = currentMonth >= 10 ? currentYear : currentYear - 1;
 
-      // 2. Approved Monthly Collection sum for current month
-      const collectionAgg = await prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: {
-          status: "APPROVED",
-          month: currentMonth,
-          year: currentYear,
-        },
-      });
+      // Parallelize ALL database queries simultaneously in 1 network flight
+      const [
+        totalMembersCount,
+        collectionAgg,
+        totalPaymentsAgg,
+        totalDonationsAgg,
+        totalExpensesAgg,
+        rawPayments,
+        rawMembers,
+        fyGroupedPayments,
+      ] = await Promise.all([
+        // 1. Total Members count
+        prisma.user.count(),
 
-      const monthlyCollectionSum = Number(
-        collectionAgg._sum.amount ?? 0
-      );
+        // 2. Approved Monthly Collection sum for current month
+        prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: "APPROVED",
+            month: currentMonth,
+            year: currentYear,
+          },
+        }),
 
-      // 3. Total approved payments received
-      const totalPaymentsAgg = await prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: {
-          status: "APPROVED",
-        },
-      });
+        // 3. Total approved payments received
+        prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: "APPROVED",
+          },
+        }),
 
-      const totalPaymentsReceived = Number(
-        totalPaymentsAgg._sum.amount ?? 0
-      );
+        // 4. Total donations received
+        prisma.donation.aggregate({
+          _sum: { amount: true },
+        }),
 
-      // 4. Total donations received
-      const totalDonationsAgg = await prisma.donation.aggregate({
-        _sum: { amount: true },
-      });
+        // 5. Total Expenses
+        prisma.expense.aggregate({
+          _sum: { amount: true },
+        }),
 
-      const totalDonationsReceived = Number(
-        totalDonationsAgg._sum.amount ?? 0
-      );
+        // 6. Recent Payments (latest 5)
+        prisma.payment.findMany({
+          take: 5,
+          orderBy: {
+            submittedAt: "desc",
+          },
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        }),
 
-      // 5. Pending Payments count
-      const pendingPaymentsCount = await prisma.payment.count({
-        where: {
-          status: "PENDING",
-        },
-      });
+        // 7. Active Members with Birthdays
+        prisma.user.findMany({
+          where: {
+            birthDate: { not: null },
+            isActive: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            birthDate: true,
+          },
+        }),
 
-      // 6. Total Expenses
-      const totalExpensesAgg = await prisma.expense.aggregate({
-        _sum: {
-          amount: true,
-        },
-      });
+        // 8. Financial Year Collections in a single fast groupBy aggregation
+        prisma.payment.groupBy({
+          by: ["month", "year"],
+          where: {
+            status: "APPROVED",
+            OR: [
+              { year: financialYearStart, month: { gte: 10 } },
+              { year: financialYearStart + 1, month: { lte: 9 } },
+            ],
+          },
+          _sum: {
+            amount: true,
+          },
+        }),
+      ]);
 
-      const totalExpenses = Number(
-        totalExpensesAgg._sum.amount ?? 0
-      );
-
-      // 7. Recent Payments (latest 5)
-      const rawPayments = await prisma.payment.findMany({
-        take: 5,
-        orderBy: {
-          submittedAt: "desc",
-        },
-        include: {
-          user: true,
-        },
-      });
+      const monthlyCollectionSum = Number(collectionAgg._sum.amount ?? 0);
+      const totalPaymentsReceived = Number(totalPaymentsAgg._sum.amount ?? 0);
+      const totalDonationsReceived = Number(totalDonationsAgg._sum.amount ?? 0);
+      const totalExpenses = Number(totalExpensesAgg._sum.amount ?? 0);
 
       const monthNames = [
-        "JAN",
-        "FEB",
-        "MAR",
-        "APR",
-        "MAY",
-        "JUN",
-        "JUL",
-        "AUG",
-        "SEP",
-        "OCT",
-        "NOV",
-        "DEC",
+        "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+        "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
       ];
 
       const recentPayments = rawPayments.map((p) => ({
@@ -130,38 +146,22 @@ export default async function DashboardPage() {
           p.status === "APPROVED"
             ? "Approved"
             : p.status === "PENDING"
-              ? "Pending"
-              : "Rejected",
+            ? "Pending"
+            : "Rejected",
       }));
 
-      // 8. Upcoming Birthdays
-      const rawMembers = await prisma.user.findMany({
-        where: {
-          birthDate: {
-            not: null,
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          birthDate: true,
-        },
-      });
-
+      // Calculate upcoming birthdays
       const upcomingBirthdays = rawMembers
         .map((member) => {
           if (!member.birthDate) return null;
-
           const birthDate = new Date(member.birthDate);
 
-          // Create this year's birthday
           let nextBirthday = new Date(
             currentYear,
             birthDate.getMonth(),
             birthDate.getDate()
           );
 
-          // If birthday has already passed, use next year
           if (nextBirthday < now) {
             nextBirthday = new Date(
               currentYear + 1,
@@ -170,9 +170,7 @@ export default async function DashboardPage() {
             );
           }
 
-          // Calculate age at next birthday
-          const age =
-            nextBirthday.getFullYear() - birthDate.getFullYear();
+          const age = nextBirthday.getFullYear() - birthDate.getFullYear();
 
           return {
             id: member.id,
@@ -184,24 +182,13 @@ export default async function DashboardPage() {
           };
         })
         .filter(
-          (
-            birthday
-          ): birthday is {
-            id: string;
-            memberName: string;
-            dateDay: string;
-            dateMonth: string;
-            age: number;
-            sortDate: number;
-          } => birthday !== null
+          (b): b is { id: string; memberName: string; dateDay: string; dateMonth: string; age: number; sortDate: number } => b !== null
         )
         .sort((a, b) => a.sortDate - b.sortDate)
         .slice(0, 5)
-        .map(({ sortDate, ...birthday }) => birthday);
+        .map(({ sortDate: _, ...birthday }) => birthday);
 
-      
-      // 9. Monthly Collection Chart - Financial Year (Oct to Sep)
-      // Monthly target = total members × ₹500
+      // Financial year target & map
       const monthlyMemberTarget = totalMembersCount * 500;
 
       const financialYearMonths = [
@@ -219,45 +206,23 @@ export default async function DashboardPage() {
         { month: 9, label: "SEP" },
       ];
 
-      // Determine the financial year containing the current date.
-      // Oct-Dec belong to currentYear, Jan-Sep belong to previous year's FY.
-      const financialYearStart =
-        currentMonth >= 10 ? currentYear : currentYear - 1;
+      // Build collection lookup map in O(1) time from the single groupBy
+      const collectionLookup = new Map<string, number>();
+      for (const row of fyGroupedPayments) {
+        collectionLookup.set(`${row.year}-${row.month}`, Number(row._sum.amount ?? 0));
+      }
 
-      const chartData: {
-        month: string;
-        collected: number;
-        pending: number;
-      }[] = [];
-
-      for (const item of financialYearMonths) {
-        const year =
-          item.month >= 10
-            ? financialYearStart
-            : financialYearStart + 1;
-
-        const agg = await prisma.payment.aggregate({
-          _sum: {
-            amount: true,
-          },
-          where: {
-            status: "APPROVED",
-            month: item.month,
-            year,
-          },
-        });
-
-        const collected = Number(agg._sum.amount ?? 0);
-
-        // Pending can never be negative.
+      const chartData = financialYearMonths.map((item) => {
+        const year = item.month >= 10 ? financialYearStart : financialYearStart + 1;
+        const collected = collectionLookup.get(`${year}-${item.month}`) || 0;
         const pending = Math.max(monthlyMemberTarget - collected, 0);
 
-        chartData.push({
+        return {
           month: item.label,
           collected,
           pending,
-        });
-      }
+        };
+      });
 
       dashboardData = {
         totalMembersCount,
@@ -270,13 +235,12 @@ export default async function DashboardPage() {
         upcomingBirthdays,
         chartData,
       };
-
     } catch (e) {
       console.error("Dashboard DB Query Error:", e);
     }
   }
 
-  const userName = session.user.name || "Super Admin";
+  const userName = session.user.name || "Admin";
 
   return (
     <DashboardShell title={`Good morning, ${userName}`}>

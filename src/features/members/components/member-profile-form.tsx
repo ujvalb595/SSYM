@@ -7,12 +7,12 @@ import { BloodGroup, Role } from "@prisma/client";
 import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   MemberPaymentStatusCard,
   UserPaymentRecord,
 } from "@/features/members/components/member-payment-status-card";
 import {
-  AlertTriangle,
   Calendar,
   Camera,
   Droplet,
@@ -24,7 +24,6 @@ import {
   Shield,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 
 export interface ProfileUserData {
@@ -477,45 +476,17 @@ export function MemberProfileForm({
       
 
       {/* Delete Confirmation Dialog */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-[#ebe7f6]">
-            <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
-              <h3 className="text-base font-bold text-rose-700 flex items-center gap-2">
-                <AlertTriangle size={20} className="text-rose-600" /> Delete Member Account
-              </h3>
-              <button
-                onClick={() => setDeleteOpen(false)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="mt-3 text-xs text-stone-600 font-medium leading-relaxed">
-              Are you sure you want to permanently delete <strong className="text-[#24203a]">{user.name}</strong>? All user data, payment logs, and associated records will be removed.
-            </p>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setDeleteOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-100 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleteLoading}
-                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-rose-700 disabled:opacity-50 transition cursor-pointer"
-              >
-                {deleteLoading ? "Deleting..." : "Confirm Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Member Account"
+        description={`Are you sure you want to permanently delete "${user.name}"? All user data, payment logs, and associated records will be removed.`}
+        confirmText="Confirm Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

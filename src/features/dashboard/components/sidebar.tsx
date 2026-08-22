@@ -97,7 +97,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             aria-label="Close navigation"
-            className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 lg:hidden"
+            className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 lg:hidden cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -115,6 +115,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
               <Link
                 href={href}
                 key={label}
+                prefetch={true}
                 onClick={onClose}
                 className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
                   isActive

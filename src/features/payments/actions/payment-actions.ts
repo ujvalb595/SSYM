@@ -178,7 +178,32 @@ export async function getPaymentsData() {
   const role = session.user.role;
   const isAdmin = role === Role.ADMIN || role === Role.SUPER_ADMIN;
 
-  // Fetch payments for logged-in user
+  if (isAdmin) {
+    // For admins, fetch all payments in one query and derive user payments in memory
+    const rawAllPayments = await prisma.payment.findMany({
+      include: {
+        user: {
+          select: { name: true, mobileNumber: true },
+        },
+        approvedBy: {
+          select: { name: true },
+        },
+      },
+      orderBy: [{ createdAt: "desc" }],
+    });
+
+    const userPaymentRows = rawAllPayments
+      .filter((p) => p.userId === session.user.id)
+      .sort((a, b) => (b.year - a.year !== 0 ? b.year - a.year : b.month - a.month));
+
+    return {
+      userPayments: userPaymentRows.map(serializePayment),
+      allPayments: rawAllPayments.map(serializePayment),
+      isAdmin,
+    };
+  }
+
+  // For regular users, only fetch their own payments
   const rawUserPayments = await prisma.payment.findMany({
     where: { userId: session.user.id },
     include: {
@@ -192,22 +217,10 @@ export async function getPaymentsData() {
     orderBy: [{ year: "desc" }, { month: "desc" }],
   });
 
-  // Fetch all payments across mandal
-  const rawAllPayments = await prisma.payment.findMany({
-    include: {
-      user: {
-        select: { name: true, mobileNumber: true },
-      },
-      approvedBy: {
-        select: { name: true },
-      },
-    },
-    orderBy: [{ createdAt: "desc" }],
-  });
-
   return {
     userPayments: rawUserPayments.map(serializePayment),
-    allPayments: rawAllPayments.map(serializePayment),
-    isAdmin,
+    allPayments: [],
+    isAdmin: false,
   };
 }
+

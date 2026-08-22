@@ -13,6 +13,7 @@ interface CustomSelectProps {
   name: string;
   options: SelectOption[];
   defaultValue?: string;
+  value?: string;
   placeholder?: string;
   icon?: ReactNode;
   disabled?: boolean;
@@ -23,14 +24,21 @@ export function CustomSelect({
   name,
   options,
   defaultValue = "",
+  value,
   placeholder = "Select option",
   icon,
   disabled = false,
   onChange,
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>(defaultValue);
+  const [selected, setSelected] = useState<string>(value !== undefined ? value : defaultValue);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (value !== undefined) {
+      setSelected(value);
+    }
+  }, [value]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

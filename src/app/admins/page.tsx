@@ -69,24 +69,30 @@ export default async function AdminsPage() {
 
   if (process.env.PRISMA_DATABASE_URL) {
     try {
-      // 1. Fetch admins dynamically from database with safe fallback
-      let dbAdmins: UserQueryResult[] = [];
-
-      if (prisma.user?.findMany) {
-        dbAdmins = (await prisma.user.findMany({
+      const [dbAdmins, dbNonAdmins] = await Promise.all([
+        prisma.user.findMany({
           where: {
             role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
           },
           orderBy: [{ role: "asc" }, { createdAt: "desc" }],
-        })) as unknown as UserQueryResult[];
-      } else {
-        dbAdmins = (await prisma.$queryRawUnsafe(`
-          SELECT id, name, "mobileNumber", role, "joinedAt", "bloodGroup", "isActive"
-          FROM "User"
-          WHERE role IN ('SUPER_ADMIN', 'ADMIN')
-          ORDER BY role ASC, "createdAt" DESC
-        `)) as UserQueryResult[];
-      }
+        }) as Promise<UserQueryResult[]>,
+
+        isSuperAdmin
+          ? (prisma.user.findMany({
+              where: {
+                role: Role.USER,
+                isActive: true,
+              },
+              select: {
+                id: true,
+                name: true,
+                mobileNumber: true,
+                role: true,
+              },
+              orderBy: { name: "asc" },
+            }) as Promise<UserQueryResult[]>)
+          : Promise.resolve([] as UserQueryResult[]),
+      ]);
 
       adminItems = dbAdmins.map((u) => {
         const initials =
@@ -120,56 +126,30 @@ export default async function AdminsPage() {
         };
       });
 
-      // 2. Fetch eligible non-admin members for promotion (if user is Super Admin)
-      if (isSuperAdmin) {
-        let dbNonAdmins: UserQueryResult[] = [];
-
-        if (prisma.user?.findMany) {
-          dbNonAdmins = (await prisma.user.findMany({
-            where: {
-              role: Role.USER,
-              isActive: true,
-            },
-            select: {
-              id: true,
-              name: true,
-              mobileNumber: true,
-              role: true,
-            },
-            orderBy: { name: "asc" },
-          })) as unknown as UserQueryResult[];
-        } else {
-          dbNonAdmins = (await prisma.$queryRawUnsafe(`
-            SELECT id, name, "mobileNumber", role
-            FROM "User"
-            WHERE role = 'USER' AND "isActive" = true
-            ORDER BY name ASC
-          `)) as UserQueryResult[];
-        }
-
+      if (isSuperAdmin && dbNonAdmins.length > 0) {
         nonAdminMembers = dbNonAdmins.map((m) => ({
           id: m.id,
           name: m.name,
           mobile: m.mobileNumber || "N/A",
-          role: String(m.role),
+          role: m.role,
         }));
       }
-    } catch (err) {
-      console.error("Error fetching admin data:", err);
+    } catch (error) {
+      console.error("Admins DB Fetch Error:", error);
       adminItems = [];
+      nonAdminMembers = [];
     }
   }
 
-  // Fallback to seed admins if DB yields no results
   if (adminItems.length === 0) {
     adminItems = seedAdmins;
-    superAdminCount = seedAdmins.filter((a) => a.role === Role.SUPER_ADMIN).length;
-    adminCount = seedAdmins.filter((a) => a.role === Role.ADMIN).length;
+    superAdminCount = 1;
+    adminCount = 1;
   }
 
   return (
     <DashboardShell section="Management" title="Admins">
-      <main className="mx-auto max-w-7xl p-5 md:p-9">
+      <main className="mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
         <AdminsDirectoryView
           adminItems={adminItems}
           nonAdminMembers={nonAdminMembers}

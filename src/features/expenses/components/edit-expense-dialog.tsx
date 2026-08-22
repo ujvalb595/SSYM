@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function EditExpenseDialog({
   expense,
@@ -20,6 +21,7 @@ export function EditExpenseDialog({
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState(expense.title);
@@ -109,10 +111,7 @@ export function EditExpenseDialog({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm(`Are you sure you want to delete the expense "${expense.title}"?`)) {
-      return;
-    }
+  async function handleConfirmDelete() {
     setDeleting(true);
     setError(null);
     try {
@@ -125,6 +124,7 @@ export function EditExpenseDialog({
         setDeleting(false);
         return;
       }
+      setDeleteConfirmOpen(false);
       setOpen(false);
       setDeleting(false);
       router.refresh();
@@ -241,26 +241,26 @@ export function EditExpenseDialog({
                   <div className="flex items-center justify-between pt-3">
                     <button
                       type="button"
-                      onClick={handleDelete}
+                      onClick={() => setDeleteConfirmOpen(true)}
                       disabled={deleting || loading}
-                      className="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                      className="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50 cursor-pointer"
                     >
-                      {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                      {deleting ? "Deleting..." : "Delete"}
+                      <Trash2 size={14} />
+                      Delete
                     </button>
 
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
                         onClick={() => setOpen(false)}
-                        className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100"
+                        className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={loading || deleting}
-                        className="flex items-center gap-2 rounded-xl bg-[#7257f4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5f44e2] disabled:opacity-50"
+                        className="flex items-center gap-2 rounded-xl bg-[#7257f4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5f44e2] disabled:opacity-50 cursor-pointer"
                       >
                         {loading && <Loader2 size={14} className="animate-spin" />}
                         {loading ? "Saving..." : "Save Changes"}
@@ -273,6 +273,18 @@ export function EditExpenseDialog({
             document.body
           )
         : null}
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Expense Record"
+        description={`Are you sure you want to delete the expense "${expense.title}" of ₹${expense.amount.toLocaleString()}? This action cannot be undone.`}
+        confirmText="Delete Expense"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleting}
+      />
     </>
   );
 }

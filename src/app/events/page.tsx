@@ -1,25 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
+import { CalendarView } from "@/features/events/components/calendar-view";
 
-
-export default async function MembersPage() {
+export default async function EventsPage() {
   const session = await auth();
   if (!session?.user.isActive) redirect("/login");
+  
+  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
+
   return (
-    <DashboardShell section="Management" title="Member Directory">
-      <main className="mx-auto max-w-7xl p-5 md:p-9">
-        <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Events</h2>
-            <p className="mt-1 text-sm text-stone-500">
-              View and manage your events.
-            </p>
-          </div>
-        </div>
-        <section className="member-card">
-          
-        </section>
+    <DashboardShell section="Events" title="Calendar">
+      <main className="mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
+        <CalendarView isAdmin={isAdmin} />
       </main>
     </DashboardShell>
   );

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { syncMemberBirthdayToGoogleCalendar } from "@/lib/google-calendar";
 
 const memberSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -70,6 +71,20 @@ export async function POST(request: Request) {
         metadata: { name, mobile },
       },
     });
+
+    // Automatically sync birthday to Google Calendar
+    if (member.birthDate) {
+      try {
+        await syncMemberBirthdayToGoogleCalendar({
+          memberId: member.id,
+          memberName: member.name,
+          birthDate: member.birthDate,
+          mobileNumber: member.mobileNumber,
+        });
+      } catch (calErr) {
+        console.error("Failed to automatically sync birthday to Google Calendar:", calErr);
+      }
+    }
 
     return Response.json({ member }, { status: 201 });
   } catch (error) {
