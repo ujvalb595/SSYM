@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, ChangeEvent } from "react";
+import { useEffect, useState, useRef, useCallback, ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   Heart,
   Grid,
@@ -23,7 +24,9 @@ import {
   MoreVertical,
   Eye,
   Calendar,
+  Loader2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface InstagramMediaChild {
   id: string;
@@ -58,6 +61,84 @@ interface PostViewer {
   role: string;
   mobileNumber: string;
   viewedAt: string;
+}
+
+interface LikerUser {
+  id: string;
+  name: string;
+  role: string;
+  mobileNumber?: string;
+}
+
+// In-memory feed cache for instant 0ms tab switching
+interface FeedCacheData {
+  posts: InstagramPost[];
+  likeCounts: Record<string, number>;
+  likedPosts: Record<string, boolean>;
+  viewCounts: Record<string, number>;
+  timestamp: number;
+}
+
+let globalFeedCache: FeedCacheData | null = null;
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
+const INITIAL_FEED_BATCH = 3;
+const INITIAL_GRID_BATCH = 8;
+const BATCH_INCREMENT = 3;
+
+function InstagramPostSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white shadow-xs animate-pulse">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#f7f6fc]">
+        <div className="flex items-center gap-2.5">
+          <div className="size-8 rounded-full bg-violet-100/80" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-32 rounded-lg bg-stone-200/80" />
+            <div className="h-2.5 w-16 rounded-md bg-stone-100" />
+          </div>
+        </div>
+        <div className="size-6 rounded-full bg-stone-100" />
+      </div>
+
+      {/* Media Placeholder */}
+      <div className="aspect-[4/3] sm:aspect-square w-full bg-gradient-to-tr from-stone-100 via-violet-50/30 to-stone-100 relative overflow-hidden flex items-center justify-center">
+        <div className="size-12 rounded-2xl bg-white/60 backdrop-blur-xs flex items-center justify-center shadow-xs">
+          <div className="size-6 rounded-lg bg-violet-200/50" />
+        </div>
+      </div>
+
+      {/* Post Actions & Caption */}
+      <div className="p-4 pt-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-6 rounded-full bg-rose-100/70" />
+            <div className="h-3 w-16 rounded-md bg-stone-200/70" />
+          </div>
+          <div className="h-2.5 w-14 rounded-md bg-stone-100" />
+        </div>
+        <div className="space-y-1.5 pt-1">
+          <div className="h-3 w-4/5 rounded-md bg-stone-200/70" />
+          <div className="h-3 w-3/5 rounded-md bg-stone-100" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstagramGridSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 animate-pulse">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="aspect-square rounded-2xl bg-gradient-to-br from-stone-100 via-violet-50/20 to-stone-100 border border-[#ebe7f6] relative overflow-hidden flex items-center justify-center"
+        >
+          <div className="size-7 rounded-xl bg-violet-100/50" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function InstagramIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
@@ -183,7 +264,7 @@ function ExpandableCaption({ caption, maxLength = 100 }: { caption?: string; max
   );
 }
 
-// Instagram Reel Video Player with Auto-Play on Viewport & Tap Controls
+// Instagram Reel Video Player with Auto-Play on Viewport & Tap Controls + Lazy Preload
 function InstaVideoPlayer({
   src,
   poster,
@@ -197,15 +278,14 @@ function InstaVideoPlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showControlBadge, setShowControlBadge] = useState<"play" | "pause" | null>(null);
 
-  // Single vs Double Click Handler
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-play when video comes into viewport (50% visible)
   useEffect(() => {
     const container = containerRef.current;
     if (!container || hasError || !src) return;
@@ -213,35 +293,30 @@ function InstaVideoPlayer({
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (videoRef.current && !hasError) {
-            if (entry.isIntersecting) {
+          if (entry.isIntersecting) {
+            setInView(true);
+            if (videoRef.current && !hasError) {
               videoRef.current.muted = isMuted;
               const playPromise = videoRef.current.play();
               if (playPromise !== undefined) {
                 playPromise
-                  .then(() => {
-                    setIsPlaying(true);
-                  })
-                  .catch((err) => {
-                    console.warn("Autoplay prevented:", err);
-                    setIsPlaying(false);
-                  });
+                  .then(() => setIsPlaying(true))
+                  .catch(() => setIsPlaying(false));
               }
-            } else {
+            }
+          } else {
+            if (videoRef.current) {
               videoRef.current.pause();
               setIsPlaying(false);
             }
           }
         });
       },
-      { threshold: 0.5 }
+      { threshold: 0.3, rootMargin: "150px" }
     );
 
     observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, [hasError, src, isMuted]);
 
   const togglePlayPause = () => {
@@ -251,6 +326,7 @@ function InstaVideoPlayer({
       setIsPlaying(false);
       setShowControlBadge("pause");
     } else {
+      setInView(true);
       videoRef.current.muted = isMuted;
       videoRef.current
         .play()
@@ -268,12 +344,10 @@ function InstaVideoPlayer({
     if (clickTimeoutRef.current) {
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
-      // Double tap -> heart animation
       onDoubleTap?.();
     } else {
       clickTimeoutRef.current = setTimeout(() => {
         clickTimeoutRef.current = null;
-        // Single tap -> toggle play/pause
         togglePlayPause();
       }, 250);
     }
@@ -288,7 +362,6 @@ function InstaVideoPlayer({
     }
   };
 
-  // If video fails to load or CDN link expired, fallback gracefully to poster image + Instagram link
   if (hasError || !src) {
     return (
       <div
@@ -299,6 +372,7 @@ function InstaVideoPlayer({
           <img
             src={poster}
             alt="Video thumbnail"
+            loading="lazy"
             className="w-full max-h-[640px] object-contain"
           />
         ) : (
@@ -329,28 +403,40 @@ function InstaVideoPlayer({
       onClick={handleContainerClick}
       className="relative w-full flex items-center justify-center bg-[#09090b] cursor-pointer select-none overflow-hidden min-h-[300px] max-h-[640px]"
     >
-      {/* Ambient Blurred Backdrop */}
       {poster && (
         <img
           src={poster}
           alt=""
+          loading="lazy"
           className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
         />
       )}
 
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        loop
-        playsInline
-        muted={isMuted}
-        preload="metadata"
-        onError={() => setHasError(true)}
-        className="relative z-10 w-full max-h-[640px] object-contain"
-      />
+      {inView ? (
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          loop
+          playsInline
+          muted={isMuted}
+          preload="metadata"
+          onError={() => setHasError(true)}
+          className="relative z-10 w-full max-h-[640px] object-contain"
+        />
+      ) : (
+        <div className="relative z-10 w-full flex items-center justify-center min-h-[300px]">
+          {poster ? (
+            <img src={poster} alt="" loading="lazy" className="w-full max-h-[640px] object-contain" />
+          ) : null}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md shadow-lg">
+              <Play size={26} className="fill-white ml-1" />
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Play/Pause Control Feedback Badge (Center) */}
       {showControlBadge && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md animate-in zoom-in-50 duration-200">
@@ -363,8 +449,7 @@ function InstaVideoPlayer({
         </div>
       )}
 
-      {/* Paused Icon Overlay */}
-      {!isPlaying && !showControlBadge && (
+      {!isPlaying && !showControlBadge && inView && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md shadow-lg">
             <Play size={26} className="fill-white ml-1" />
@@ -372,10 +457,9 @@ function InstaVideoPlayer({
         </div>
       )}
 
-      {/* Instagram Sound Mute / Unmute Button */}
       <button
         onClick={toggleMute}
-        className="absolute bottom-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-md"
+        className="absolute bottom-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-md cursor-pointer"
         title={isMuted ? "Unmute sound" : "Mute sound"}
       >
         {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
@@ -388,7 +472,6 @@ function InstaVideoPlayer({
 function PostMediaCarousel({
   post,
   onDoubleTap,
-  heartAnim,
 }: {
   post: InstagramPost;
   onDoubleTap?: () => void;
@@ -396,7 +479,6 @@ function PostMediaCarousel({
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Extract all media slides
   const items: { id: string; media_type: string; media_url?: string; thumbnail_url?: string }[] = [];
 
   if (post.children?.data && post.children.data.length > 0) {
@@ -435,10 +517,7 @@ function PostMediaCarousel({
   };
 
   return (
-    <div
-      className="relative w-full select-none overflow-hidden bg-[#f7f6fb] flex items-center justify-center min-h-[250px] max-h-[640px] group"
-    >
-      {/* Slides Slider Container */}
+    <div className="relative w-full select-none overflow-hidden bg-[#f7f6fb] flex items-center justify-center min-h-[250px] max-h-[640px] group">
       <div
         className="flex w-full transition-transform duration-300 ease-out"
         style={{ transform: `translateX(-${activeIndex * 100}%)` }}
@@ -481,36 +560,32 @@ function PostMediaCarousel({
         })}
       </div>
 
-      {/* Multiple Images Slide Counter Badge (Top Right, e.g. 1/5) */}
       {isMultiple && (
         <div className="absolute top-3 right-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-md tracking-wider">
           {activeIndex + 1}/{items.length}
         </div>
       )}
 
-      {/* Navigation Arrow Left */}
       {isMultiple && activeIndex > 0 && (
         <button
           onClick={prevSlide}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95 cursor-pointer"
           aria-label="Previous slide"
         >
           <ChevronLeft size={16} />
         </button>
       )}
 
-      {/* Navigation Arrow Right */}
       {isMultiple && activeIndex < items.length - 1 && (
         <button
           onClick={nextSlide}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[#24203a] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95 cursor-pointer"
           aria-label="Next slide"
         >
           <ChevronRight size={16} />
         </button>
       )}
 
-      {/* Bottom Dot Indicators */}
       {isMultiple && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-1 backdrop-blur-sm">
           {items.map((_, idx) => (
@@ -520,35 +595,16 @@ function PostMediaCarousel({
                 e.stopPropagation();
                 setActiveIndex(idx);
               }}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                idx === activeIndex
-                  ? "w-3 bg-white"
-                  : "w-1.5 bg-white/50 hover:bg-white/80"
+              className={`size-1.5 rounded-full transition-all cursor-pointer ${
+                idx === activeIndex ? "bg-white scale-125 w-3" : "bg-white/50"
               }`}
               aria-label={`Go to slide ${idx + 1}`}
             />
           ))}
         </div>
       )}
-
-      {/* Big Heart Animation on Double Tap */}
-      {heartAnim && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-          <Heart
-            size={80}
-            className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
-          />
-        </div>
-      )}
     </div>
   );
-}
-
-interface LikerUser {
-  id: string;
-  name: string;
-  role: string;
-  mobileNumber?: string;
 }
 
 function InstagramStoriesBar({
@@ -558,7 +614,6 @@ function InstagramStoriesBar({
   posts: InstagramPost[];
   onSelectPost: (post: InstagramPost) => void;
 }) {
-  // Show ONLY posts that an Admin has pinned
   const storyItems = posts.filter((post) => post.isPinned);
 
   if (storyItems.length === 0) return null;
@@ -577,7 +632,6 @@ function InstagramStoriesBar({
               onClick={() => onSelectPost(post)}
               className="group flex flex-col items-center gap-1.5 shrink-0 focus:outline-none cursor-pointer"
             >
-              {/* Instagram Story Gradient Ring */}
               <div
                 className={`relative flex h-16 w-16 items-center justify-center rounded-full p-[2.5px] transition-transform duration-300 group-hover:scale-105 ${
                   post.isPinned
@@ -594,11 +648,11 @@ function InstagramStoriesBar({
                     <img
                       src={imgUrl}
                       alt={post.caption || "Story Highlight"}
+                      loading="lazy"
                       className="h-full w-full object-cover"
                     />
                   )}
 
-                  {/* Pin Badge on Story Avatar */}
                   {post.isPinned && (
                     <div className="absolute bottom-0 right-0 rounded-full bg-amber-500 p-0.5 text-white shadow-sm border border-white">
                       <Pin size={8} className="fill-white" />
@@ -607,7 +661,6 @@ function InstagramStoriesBar({
                 </div>
               </div>
 
-              {/* Story Title */}
               <span className="max-w-[72px] truncate text-[11px] font-semibold text-[#24203a] group-hover:text-[#7257f4] transition-colors">
                 {post.isPinned ? "📌 Pinned" : post.caption?.slice(0, 12) || "Highlight"}
               </span>
@@ -701,21 +754,6 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
     emitChange(viewDate.getFullYear(), viewDate.getMonth(), d, hour, minute, ampm);
   };
 
-  const handleHourClick = (h: number) => {
-    setHour(h);
-    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, h, minute, ampm);
-  };
-
-  const handleMinuteClick = (m: number) => {
-    setMinute(m);
-    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, hour, m, ampm);
-  };
-
-  const handleAmpmClick = (ap: "AM" | "PM") => {
-    setAmpm(ap);
-    emitChange(viewDate.getFullYear(), viewDate.getMonth(), selectedDay, hour, minute, ap);
-  };
-
   const prevMonth = () => {
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   };
@@ -788,9 +826,7 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
   return (
     <div className="rounded-2xl border border-[#ebe7f6] bg-white p-3.5 shadow-sm text-[#24203a] select-none space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-        {/* LEFT PANEL: Month Calendar Grid */}
         <div className="sm:col-span-7 space-y-2.5">
-          {/* Month Header Nav */}
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold text-[#24203a]">
               {monthName} {year}
@@ -813,7 +849,6 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
             </div>
           </div>
 
-          {/* Days of Week Header */}
           <div className="grid grid-cols-7 text-center text-[10px] font-extrabold text-stone-400">
             <span>S</span>
             <span>M</span>
@@ -824,7 +859,6 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
             <span>S</span>
           </div>
 
-          {/* Dates Grid */}
           <div className="grid grid-cols-7 gap-1 text-center text-xs">
             {cells.map((cell, idx) => {
               if (!cell.isCurrent) {
@@ -853,7 +887,6 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
             })}
           </div>
 
-          {/* Bottom Actions: Clear & Today */}
           <div className="flex items-center justify-between pt-2 border-t border-[#f5f2fd] text-[11px] font-bold text-[#7257f4]">
             <button type="button" onClick={handleClear} className="hover:underline cursor-pointer">
               Clear
@@ -864,9 +897,8 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
           </div>
         </div>
 
-        {/* RIGHT PANEL: Typed Time Input */}
         <div className="sm:col-span-5 border-t sm:border-t-0 sm:border-l border-[#f2effb] pt-3 sm:pt-0 sm:pl-3.5 flex flex-col justify-center space-y-2">
-          <label className="block text-[11px] font-bold text-[#24203a] flex items-center gap-1.5">
+          <label className="text-[11px] font-bold text-[#24203a] flex items-center gap-1.5">
             <Clock size={14} className="text-[#7257f4]" /> Select Time
           </label>
           <input
@@ -887,18 +919,25 @@ function SSYMCalendarPicker({ value, onChange }: SSYMCalendarPickerProps) {
 export function InstagramFeed({ userRole }: { userRole?: string }) {
   const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
 
-  const [posts, setPosts] = useState<InstagramPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<InstagramPost[]>(() => globalFeedCache?.posts || []);
+  const [loading, setLoading] = useState(() => !globalFeedCache);
   const [error, setError] = useState(false);
   const [viewMode, setViewMode] = useState<"feed" | "grid">("feed");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  // Progressive Batch Lazy-Loading (Instagram-style Infinite Scroll)
+  const [visibleCount, setVisibleCount] = useState(INITIAL_FEED_BATCH);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // App-specific Like State
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>(() => globalFeedCache?.likedPosts || {});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>(() => globalFeedCache?.likeCounts || {});
   const [heartAnimId, setHeartAnimId] = useState<string | null>(null);
 
-  // Likers Modal State (Admins & Super Admins Only)
+  // Likers Modal State
   const [likersModalPostId, setLikersModalPostId] = useState<string | null>(null);
   const [likers, setLikers] = useState<LikerUser[]>([]);
   const [loadingLikers, setLoadingLikers] = useState(false);
@@ -910,83 +949,206 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
   const [newMediaType, setNewMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
   const [previewFile, setPreviewFile] = useState<string | null>(null);
 
-  // Modal State for Pinning (Admins & Super Admins Only)
+  // Modal State for Pinning
   const [pinningPost, setPinningPost] = useState<InstagramPost | null>(null);
   const [isCreatePinned, setIsCreatePinned] = useState(false);
   const [createPinDuration, setCreatePinDuration] = useState<"24h" | "7d" | "PERMANENT">("PERMANENT");
 
-  // Modal State for Scheduling Posts (Admins & Super Admins Only)
+  // Modal State for Scheduling Posts
   const [isCreateScheduled, setIsCreateScheduled] = useState(false);
   const [createScheduledAt, setCreateScheduledAt] = useState("");
-  const [schedDate, setSchedDate] = useState<string>("");
-  const [schedHour, setSchedHour] = useState<string>("06");
-  const [schedMin, setSchedMin] = useState<string>("00");
-  const [schedAmpm, setSchedAmpm] = useState<"AM" | "PM">("PM");
-
-  const getScheduledIsoString = () => {
-    if (!schedDate) return null;
-    let hourNum = parseInt(schedHour, 10);
-    if (schedAmpm === "PM" && hourNum < 12) hourNum += 12;
-    if (schedAmpm === "AM" && hourNum === 12) hourNum = 0;
-    const hStr = hourNum.toString().padStart(2, "0");
-    return `${schedDate}T${hStr}:${schedMin}:00`;
-  };
-
-  const applySchedulePreset = (preset: "today_6pm" | "tomorrow_9am" | "tomorrow_6pm" | "in_2days") => {
-    const now = new Date();
-    const target = new Date();
-
-    if (preset === "today_6pm") {
-      target.setHours(18, 0, 0, 0);
-      if (target <= now) target.setDate(target.getDate() + 1);
-    } else if (preset === "tomorrow_9am") {
-      target.setDate(target.getDate() + 1);
-      target.setHours(9, 0, 0, 0);
-    } else if (preset === "tomorrow_6pm") {
-      target.setDate(target.getDate() + 1);
-      target.setHours(18, 0, 0, 0);
-    } else if (preset === "in_2days") {
-      target.setDate(target.getDate() + 2);
-      target.setHours(18, 0, 0, 0);
-    }
-
-    const yyyy = target.getFullYear();
-    const mm = (target.getMonth() + 1).toString().padStart(2, "0");
-    const dd = target.getDate().toString().padStart(2, "0");
-    setSchedDate(`${yyyy}-${mm}-${dd}`);
-
-    let hours = target.getHours();
-    const ampmVal = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    setSchedHour(hours.toString().padStart(2, "0"));
-    setSchedMin("00");
-    setSchedAmpm(ampmVal);
-  };
 
   // 3-Dots Action Menu State
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
 
   // View tracking and viewers modal state
-  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>(() => globalFeedCache?.viewCounts || {});
   const [viewersModalOpen, setViewersModalOpen] = useState(false);
   const [viewersList, setViewersList] = useState<PostViewer[]>([]);
   const [viewersLoading, setViewersLoading] = useState(false);
-  const [activeViewerPostId, setActiveViewerPostId] = useState<string | null>(null);
 
-  const fetchViewCounts = async () => {
-    try {
-      const res = await fetch("/api/posts/view");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.viewCounts) {
-          setViewCounts(data.viewCounts);
+  // Lightbox Modal state for Grid View
+  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
+
+  // Modal State for "Edit Post"
+  const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+  const [editMediaUrl, setEditMediaUrl] = useState("");
+  const [editMediaType, setEditMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
+  const [editPreviewFile, setEditPreviewFile] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update visible batch count when switching viewMode
+  useEffect(() => {
+    setVisibleCount(viewMode === "grid" ? INITIAL_GRID_BATCH : INITIAL_FEED_BATCH);
+  }, [viewMode, searchQuery]);
+
+  // STAGED & ASYNC DATA STREAMING WITH CLIENT CACHE
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadFeed() {
+      // 1. Check SessionStorage cache if in-memory cache is empty
+      if (!globalFeedCache) {
+        try {
+          const cachedJson = sessionStorage.getItem("ssym_feed_cache");
+          if (cachedJson) {
+            const parsed = JSON.parse(cachedJson) as FeedCacheData;
+            if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
+              globalFeedCache = parsed;
+              setPosts(parsed.posts);
+              setLikeCounts(parsed.likeCounts);
+              setLikedPosts(parsed.likedPosts);
+              setViewCounts(parsed.viewCounts);
+              setLoading(false);
+            }
+          }
+        } catch {
+          // Ignore cache parse error
         }
       }
-    } catch (err) {
-      console.error("Error fetching view counts:", err);
+
+      // 2. Fetch Database posts immediately (~30ms)
+      try {
+        const dbRes = await fetch("/api/posts");
+        if (isCancelled) return;
+
+        let dbPosts: InstagramPost[] = [];
+        if (dbRes.ok) {
+          const result = await dbRes.json();
+          dbPosts = result.data ?? [];
+        }
+
+        const initialLikedState: Record<string, boolean> = { ...likedPosts };
+        const initialLikeCounts: Record<string, number> = { ...likeCounts };
+
+        (dbPosts as (InstagramPost & { isLiked?: boolean })[]).forEach((post) => {
+          if (post.isLiked) {
+            initialLikedState[post.id] = true;
+          }
+          if (typeof post.like_count === "number") {
+            initialLikeCounts[post.id] = post.like_count;
+          }
+        });
+
+        // Show DB posts immediately if posts is empty
+        if (dbPosts.length > 0) {
+          setPosts((prev) => {
+            const instaOnly = prev.filter((p) => !p.isLocal);
+            const combined = [...dbPosts, ...instaOnly];
+            return combined.sort((a, b) => {
+              if (a.isPinned && !b.isPinned) return -1;
+              if (!a.isPinned && b.isPinned) return 1;
+              return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+            });
+          });
+          setLikeCounts(initialLikeCounts);
+          setLikedPosts(initialLikedState);
+          setLoading(false);
+        }
+
+        // 3. In background: Fetch Instagram API + likes + views
+        const backgroundPromises: Promise<Response>[] = [
+          fetch("/api/instagram"),
+          fetch("/api/posts/like"),
+        ];
+        if (isAdmin) {
+          backgroundPromises.push(fetch("/api/posts/view"));
+        }
+
+        const bgResults = await Promise.allSettled(backgroundPromises);
+        if (isCancelled) return;
+
+        const instaRes = bgResults[0];
+        const likesRes = bgResults[1];
+        const viewsRes = isAdmin ? bgResults[2] : undefined;
+
+        let apiPosts: InstagramPost[] = [];
+        if (instaRes.status === "fulfilled" && instaRes.value.ok) {
+          const result = await instaRes.value.json();
+          apiPosts = result.data ?? [];
+        }
+
+        if (likesRes.status === "fulfilled" && likesRes.value.ok) {
+          const likesData = await likesRes.value.json();
+          if (likesData.likeCounts) {
+            Object.assign(initialLikeCounts, likesData.likeCounts);
+          }
+          if (likesData.userLikedPosts) {
+            Object.assign(initialLikedState, likesData.userLikedPosts);
+          }
+        }
+
+        let newViewCounts = { ...viewCounts };
+        if (viewsRes && viewsRes.status === "fulfilled" && viewsRes.value.ok) {
+          const viewsData = await viewsRes.value.json();
+          if (viewsData.viewCounts) {
+            newViewCounts = { ...newViewCounts, ...viewsData.viewCounts };
+            setViewCounts(newViewCounts);
+          }
+        }
+
+        const allCombined = [...dbPosts, ...apiPosts];
+        allCombined.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
+
+        setPosts(allCombined);
+        setLikeCounts(initialLikeCounts);
+        setLikedPosts(initialLikedState);
+        setLoading(false);
+
+        // Update global cache & session storage
+        const cachePayload: FeedCacheData = {
+          posts: allCombined,
+          likeCounts: initialLikeCounts,
+          likedPosts: initialLikedState,
+          viewCounts: newViewCounts,
+          timestamp: Date.now(),
+        };
+        globalFeedCache = cachePayload;
+        try {
+          sessionStorage.setItem("ssym_feed_cache", JSON.stringify(cachePayload));
+        } catch {
+          // ignore quota error
+        }
+      } catch (err) {
+        console.error("Error loading feed data:", err);
+        if (!globalFeedCache) {
+          setError(true);
+        }
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+
+    loadFeed();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAdmin]);
+
+  // Close Modals on ESC key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedPost(null);
+        setEditingPost(null);
+        setIsCreateModalOpen(false);
+        setLikersModalPostId(null);
+        setPinningPost(null);
+        setViewersModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const recordPostView = async (postId: string) => {
     try {
@@ -1008,7 +1170,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
 
   const openViewersModal = async (postId: string) => {
     if (!isAdmin) return;
-    setActiveViewerPostId(postId);
     setViewersModalOpen(true);
     setViewersLoading(true);
     try {
@@ -1021,6 +1182,23 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
       console.error("Error fetching viewers:", err);
     } finally {
       setViewersLoading(false);
+    }
+  };
+
+  const openLikersModal = async (postId: string) => {
+    if (!isAdmin) return;
+    setLikersModalPostId(postId);
+    setLoadingLikers(true);
+    try {
+      const res = await fetch(`/api/posts/like?postId=${encodeURIComponent(postId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLikers(data.likers ?? []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch likers:", err);
+    } finally {
+      setLoadingLikers(false);
     }
   };
 
@@ -1067,19 +1245,12 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     }
   };
 
-  // Modal State for "Edit Post" (Admins & Super Admins Only, 15 min limit)
-  const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
-  const [editCaption, setEditCaption] = useState("");
-  const [editMediaUrl, setEditMediaUrl] = useState("");
-  const [editMediaType, setEditMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
-  const [editPreviewFile, setEditPreviewFile] = useState<string | null>(null);
-
   const handleOpenEdit = (post: InstagramPost) => {
     const postTime = new Date(post.timestamp).getTime();
     const minutesPassed = (Date.now() - postTime) / (1000 * 60);
 
     if (minutesPassed > 15) {
-      alert(`Edit window expired! Posts can only be edited within 15 minutes of creation. (Created ${Math.round(minutesPassed)} minutes ago)`);
+      alert(`Edit window expired! Posts can only be edited within 15 minutes of creation.`);
       return;
     }
 
@@ -1169,142 +1340,10 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     }
   };
 
-  // Lightbox Modal state for Grid View
-  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
-
-  // Close Modals on ESC key press
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSelectedPost(null);
-        setEditingPost(null);
-        setIsCreateModalOpen(false);
-        setLikersModalPostId(null);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Open Likers Modal (Admin only)
-  const openLikersModal = async (postId: string) => {
-    if (!isAdmin) return;
-    setLikersModalPostId(postId);
-    setLoadingLikers(true);
-    try {
-      const res = await fetch(`/api/posts/like?postId=${encodeURIComponent(postId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLikers(data.likers ?? []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch likers:", err);
-    } finally {
-      setLoadingLikers(false);
-    }
-  };
-
-  // Synchronously fetch posts on load
-  useEffect(() => {
-    const isMounted = true;
-
-    async function loadAllData() {
-      try {
-        setLoading(true);
-        setError(false);
-
-        const promises: Promise<Response>[] = [
-          fetch("/api/instagram"),
-          fetch("/api/posts"),
-          fetch("/api/posts/like"),
-        ];
-        if (isAdmin) {
-          promises.push(fetch("/api/posts/view"));
-        }
-
-        const results = await Promise.allSettled(promises);
-        if (!isMounted) return;
-        
-        const instaRes = results[0];
-        const dbPostsRes = results[1];
-        const likesRes = results[2];
-        const viewsRes = isAdmin ? results[3] : undefined;
-
-        let apiPosts: InstagramPost[] = [];
-        if (instaRes.status === "fulfilled" && instaRes.value.ok) {
-          const result = await instaRes.value.json();
-          apiPosts = result.data ?? [];
-        }
-
-        let dbPosts: InstagramPost[] = [];
-        if (dbPostsRes.status === "fulfilled" && dbPostsRes.value.ok) {
-          const result = await dbPostsRes.value.json();
-          dbPosts = result.data ?? [];
-        }
-
-        const initialLikedState: Record<string, boolean> = {};
-        const initialLikeCounts: Record<string, number> = {};
-
-        // Populate db post initial likes
-        (dbPosts as (InstagramPost & { isLiked?: boolean })[]).forEach((post) => {
-          if (post.isLiked) {
-            initialLikedState[post.id] = true;
-          }
-          if (typeof post.like_count === "number") {
-            initialLikeCounts[post.id] = post.like_count;
-          }
-        });
-
-        if (likesRes.status === "fulfilled" && likesRes.value.ok) {
-          const likesData = await likesRes.value.json();
-          if (likesData.likeCounts) {
-            Object.assign(initialLikeCounts, likesData.likeCounts);
-          }
-          if (likesData.userLikedPosts) {
-            Object.assign(initialLikedState, likesData.userLikedPosts);
-          }
-        }
-
-        if (viewsRes && viewsRes.status === "fulfilled" && viewsRes.value.ok) {
-          const viewsData = await viewsRes.value.json();
-          if (viewsData.viewCounts) {
-            setViewCounts(viewsData.viewCounts);
-          }
-        }
-
-        const combinedPosts = [...dbPosts, ...apiPosts];
-        combinedPosts.sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        });
-
-        setPosts(combinedPosts);
-        setLikeCounts(initialLikeCounts);
-        setLikedPosts(initialLikedState);
-      } catch (err) {
-        console.error("Error loading feed data:", err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAllData();
-  }, []);
-
-  // Record view when lightbox modal is opened
-  useEffect(() => {
-    if (selectedPost?.id) {
-      recordPostView(selectedPost.id);
-    }
-  }, [selectedPost?.id]);
-
-  // Toggle Like on a Post (Persisted in PostgreSQL DB)
   const handleToggleLike = async (postId: string) => {
     const isCurrentlyLiked = !!likedPosts[postId];
     const willBeLiked = !isCurrentlyLiked;
 
-    // Optimistic UI update
     setLikedPosts((prev) => ({ ...prev, [postId]: willBeLiked }));
     setLikeCounts((prev) => {
       const currentCount = prev[postId] || 0;
@@ -1323,7 +1362,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         setLikedPosts((prev) => ({ ...prev, [postId]: data.isLiked }));
         setLikeCounts((prev) => ({ ...prev, [postId]: data.likeCount }));
       } else {
-        // Revert on error
         setLikedPosts((prev) => ({ ...prev, [postId]: isCurrentlyLiked }));
         setLikeCounts((prev) => {
           const currentCount = prev[postId] || 0;
@@ -1331,8 +1369,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         });
       }
     } catch (error) {
-      console.error("Failed to toggle like in database:", error);
-      // Revert on error
+      console.error("Failed to toggle like:", error);
       setLikedPosts((prev) => ({ ...prev, [postId]: isCurrentlyLiked }));
       setLikeCounts((prev) => {
         const currentCount = prev[postId] || 0;
@@ -1341,7 +1378,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     }
   };
 
-  // Double tap to like on image/card
   const handleDoubleTap = (postId: string) => {
     if (!likedPosts[postId]) {
       handleToggleLike(postId);
@@ -1352,7 +1388,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     }, 800);
   };
 
-  // File Upload Handler for Create Post
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1369,7 +1404,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     reader.readAsDataURL(file);
   };
 
-  // Create App Post Handler (Persisted in PostgreSQL DB)
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCaption.trim() && !newMediaUrl.trim()) return;
@@ -1410,7 +1444,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         });
       });
 
-      // Reset Form & Close Modal
       setNewCaption("");
       setNewMediaUrl("");
       setNewMediaType("TEXT");
@@ -1433,17 +1466,58 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
       : true
   );
 
+  // Progressive Batch Windowing
+  const displayedPosts = filteredPosts.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredPosts.length;
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setTimeout(() => {
+      setVisibleCount((prev) =>
+        Math.min(
+          prev + (viewMode === "grid" ? 4 : BATCH_INCREMENT),
+          filteredPosts.length
+        )
+      );
+      setLoadingMore(false);
+    }, 350); // Instagram-like smooth skeleton delay while fetching next batch
+  }, [loadingMore, hasMore, viewMode, filteredPosts.length]);
+
+  // Auto Lazy-Load Sentinel Observer (scoped to internal scrollable container)
+  useEffect(() => {
+    const node = sentinelRef.current;
+    const container = scrollContainerRef.current;
+    if (!node || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      {
+        root: container || null,
+        rootMargin: "300px",
+      }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, handleLoadMore]);
+
   return (
-    <div className="w-full space-y-6">
-      {/* Top Controls Bar */}
-      <div className="rounded-3xl border border-[#ebe7f6] bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Brand Logo & Social Media Redirect Icons */}
+    <div className="w-full flex flex-col h-full overflow-hidden">
+      {/* Top Controls Bar - Fixed Header that stays locked in place */}
+      <div className="shrink-0 mb-4">
+        <div className="card-base p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Brand Logo & Social Icons */}
           <div className="flex items-center gap-2.5">
             <img
               src="/ssym-logo.png"
               alt="Shiv Sai Yuvak Mandal"
-              className="h-10 w-10 object-contain rounded-2xl border border-[#ebe7f6] bg-white p-1 shadow-sm"
+              className="h-10 w-10 object-contain rounded-2xl border border-[#ebe7f6] bg-white p-1 shadow-xs"
             />
 
             <a
@@ -1467,9 +1541,8 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
             </a>
           </div>
 
-          {/* Center & Right Controls */}
+          {/* Search & View Mode */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            {/* Compact Search Bar */}
             <div className="relative flex-1 sm:w-48 lg:w-56 min-w-[120px]">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
@@ -1477,19 +1550,18 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] py-1.5 pl-8 pr-7 text-xs font-medium text-[#24203a] placeholder:text-stone-400 focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+                className="input-base pl-8 pr-7 text-xs py-1.5"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
                 >
                   <X size={12} />
                 </button>
               )}
             </div>
 
-            {/* "+ Create Post" Button (Admins & Super Admins Only) */}
             {isAdmin && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
@@ -1500,13 +1572,12 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               </button>
             )}
 
-            {/* View Mode Toggle */}
             <div className="flex items-center rounded-2xl border border-[#ebe7f6] bg-[#f8f7fc] p-1 shrink-0">
               <button
                 onClick={() => setViewMode("feed")}
                 className={`flex items-center justify-center rounded-xl p-1.5 transition-all cursor-pointer ${
                   viewMode === "feed"
-                    ? "bg-white text-[#7257f4] shadow-sm"
+                    ? "bg-white text-brand shadow-xs font-bold"
                     : "text-stone-500 hover:text-[#24203a]"
                 }`}
                 title="Feed View"
@@ -1517,7 +1588,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 onClick={() => setViewMode("grid")}
                 className={`flex items-center justify-center rounded-xl p-1.5 transition-all cursor-pointer ${
                   viewMode === "grid"
-                    ? "bg-white text-[#7257f4] shadow-sm"
+                    ? "bg-white text-brand shadow-xs font-bold"
                     : "text-stone-500 hover:text-[#24203a]"
                 }`}
                 title="Grid View"
@@ -1528,24 +1599,28 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Loading Skeleton */}
+      {/* Scrollable Posts Feed Area - ONLY this scrolls */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto pr-1 sm:pr-2 pb-6 space-y-6 scrollbar-thin scrollbar-thumb-violet-200/80 hover:scrollbar-thumb-violet-300 scrollbar-track-transparent select-text"
+      >
+        {/* Loading Skeleton */}
       {loading && (
-        <div className="mx-auto max-w-md space-y-6">
-          {Array.from({ length: 2 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white p-4 shadow-sm"
-            >
-              <div className="h-48 w-full animate-pulse rounded-2xl bg-stone-100" />
-            </div>
-          ))}
-        </div>
+        viewMode === "feed" ? (
+          <div className="mx-auto max-w-md space-y-6">
+            <InstagramPostSkeleton />
+            <InstagramPostSkeleton />
+          </div>
+        ) : (
+          <InstagramGridSkeleton count={8} />
+        )
       )}
 
       {/* Error State */}
-      {!loading && error && (
-        <div className="rounded-3xl border border-[#ebe7f6] bg-white p-8 text-center shadow-sm">
+      {!loading && error && posts.length === 0 && (
+        <div className="card-base p-8 text-center">
           <InstagramIcon size={36} className="mx-auto mb-3 text-stone-300" />
           <h3 className="text-sm font-bold text-[#24203a]">
             Instagram Feed Unavailable
@@ -1558,323 +1633,337 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
 
       {/* Empty State */}
       {!loading && !error && filteredPosts.length === 0 && (
-        <div className="rounded-3xl border border-[#ebe7f6] bg-white p-12 text-center shadow-sm">
+        <div className="card-base p-12 text-center">
           <InstagramIcon size={36} className="mx-auto mb-2 text-stone-300" />
           <h3 className="text-sm font-bold text-[#24203a]">No posts found</h3>
           <p className="mt-1 text-xs text-stone-500">
-            Click &quot;+ Create Post&quot; above to add the first post!
+            {isAdmin ? "Click + above to create your first post!" : "Check back later for updates."}
           </p>
         </div>
       )}
 
-      {/* FEED VIEW (Clean Post Cards, Stories Highlight Bar, Official Logo Avatar) */}
-      {!loading && !error && viewMode === "feed" && filteredPosts.length > 0 && (
+      {/* FEED VIEW */}
+      {!loading && viewMode === "feed" && filteredPosts.length > 0 && (
         <div className="mx-auto max-w-md space-y-6">
-          {/* INSTAGRAM STORIES / HIGHLIGHTS BAR */}
           <InstagramStoriesBar posts={filteredPosts} onSelectPost={setSelectedPost} />
 
-          {filteredPosts.map((post) => {
+          {displayedPosts.map((post) => {
             const isLiked = !!likedPosts[post.id];
             const appLikeCount = likeCounts[post.id] || 0;
-            const isVideo = post.media_type === "VIDEO";
             const isTextOnly = post.media_type === "TEXT" || (!post.media_url && !post.thumbnail_url);
-            const imageUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
 
             return (
               <PostViewTracker key={post.id} postId={post.id} onVisible={recordPostView}>
-                <article
-                  className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white shadow-sm transition-all hover:shadow-md"
-                >
-                {/* Clean Post Header */}
-                <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#f7f6fc]">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src="/ssym-logo.png"
-                      alt="SSYM Logo"
-                      className="h-8 w-8 object-contain rounded-full border border-[#ebe7f6] bg-white p-0.5 shadow-xs"
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#24203a]">
-                        Shiv Sai Yuvak Mandal
-                      </span>
-                      {post.isPinned && (
-                        <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200/60 shadow-2xs" title="Pinned Post">
-                          <Pin size={10} className="fill-amber-600 text-amber-600" /> Pinned
+                <article className="overflow-hidden rounded-3xl border border-[#ebe7f6] bg-white shadow-xs transition-all hover:shadow-md">
+                  {/* Clean Post Header */}
+                  <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#f7f6fc]">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src="/ssym-logo.png"
+                        alt="SSYM Logo"
+                        className="h-8 w-8 object-contain rounded-full border border-[#ebe7f6] bg-white p-0.5 shadow-2xs"
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#24203a]">
+                          Shiv Sai Yuvak Mandal
                         </span>
-                      )}
-                      {post.isScheduled && (
-                        <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200/60 shadow-2xs" title={post.scheduledAt ? `Scheduled for ${new Date(post.scheduledAt).toLocaleString()}` : "Scheduled Post"}>
-                          <Calendar size={10} className="text-blue-600" /> Scheduled
-                        </span>
-                      )}
+                        {post.isPinned && (
+                          <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200/60 shadow-2xs" title="Pinned Post">
+                            <Pin size={10} className="fill-amber-600 text-amber-600" /> Pinned
+                          </span>
+                        )}
+                        {post.isScheduled && (
+                          <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200/60 shadow-2xs">
+                            <Calendar size={10} className="text-blue-600" /> Scheduled
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* 3-Dots Action Menu (Admins / Super Admins Only for App Posts) */}
-                  {isAdmin && post.isLocal && (
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenMenuPostId(openMenuPostId === post.id ? null : post.id)}
-                        className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-[#24203a] transition-colors cursor-pointer"
-                        title="Post Options"
-                      >
-                        <MoreVertical size={18} />
-                      </button>
+                    {isAdmin && post.isLocal && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenMenuPostId(openMenuPostId === post.id ? null : post.id)}
+                          className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-[#24203a] transition-colors cursor-pointer"
+                        >
+                          <MoreVertical size={18} />
+                        </button>
 
-                      {/* Dropdown Menu */}
-                      {openMenuPostId === post.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-20"
-                            onClick={() => setOpenMenuPostId(null)}
-                          />
-                          <div className="absolute right-0 top-8 z-30 w-44 overflow-hidden rounded-2xl bg-white p-1.5 shadow-xl border border-[#ebe7f6] animate-in fade-in zoom-in-95">
-                            {/* Pin / Unpin Action */}
-                            {post.isPinned ? (
-                              <button
-                                onClick={() => {
-                                  setOpenMenuPostId(null);
-                                  handleTogglePin(post.id, false);
-                                }}
-                                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
-                              >
-                                <Pin size={14} className="fill-amber-600 text-amber-600" /> Unpin Post
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setOpenMenuPostId(null);
-                                  setPinningPost(post);
-                                }}
-                                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
-                              >
-                                <Pin size={14} className="text-amber-500" /> Pin Post
-                              </button>
-                            )}
-
-                            {/* Edit Action (within 15 min) */}
-                            {(() => {
-                              const postTime = new Date(post.timestamp).getTime();
-                              const minutesPassed = (Date.now() - postTime) / (1000 * 60);
-                              const canEdit = minutesPassed <= 15;
-
-                              return canEdit ? (
+                        {openMenuPostId === post.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-20"
+                              onClick={() => setOpenMenuPostId(null)}
+                            />
+                            <div className="absolute right-0 top-8 z-30 w-44 overflow-hidden rounded-2xl bg-white p-1.5 shadow-xl border border-[#ebe7f6] animate-in fade-in zoom-in-95">
+                              {post.isPinned ? (
                                 <button
                                   onClick={() => {
                                     setOpenMenuPostId(null);
-                                    handleOpenEdit(post);
+                                    handleTogglePin(post.id, false);
                                   }}
-                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
                                 >
-                                  <Pencil size={14} className="text-[#7257f4]" /> Edit Post
+                                  <Pin size={14} className="fill-amber-600 text-amber-600" /> Unpin Post
                                 </button>
                               ) : (
                                 <button
-                                  disabled
-                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-stone-400 opacity-60 text-left cursor-not-allowed"
-                                  title="Edit expired (>15 min)"
+                                  onClick={() => {
+                                    setOpenMenuPostId(null);
+                                    setPinningPost(post);
+                                  }}
+                                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
                                 >
-                                  <Clock size={14} /> Edit expired
+                                  <Pin size={14} className="text-amber-500" /> Pin Post
                                 </button>
-                              );
-                            })()}
+                              )}
 
-                            <div className="my-1 border-t border-[#f0ecf9]" />
+                              {(() => {
+                                const postTime = new Date(post.timestamp).getTime();
+                                const minutesPassed = (Date.now() - postTime) / (1000 * 60);
+                                const canEdit = minutesPassed <= 15;
 
-                            {/* Delete Action */}
-                            <button
-                              onClick={() => {
-                                setOpenMenuPostId(null);
-                                handleDeletePost(post.id);
-                              }}
-                              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
-                            >
-                              <Trash2 size={14} /> Delete Post
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+                                return canEdit ? (
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuPostId(null);
+                                      handleOpenEdit(post);
+                                    }}
+                                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#24203a] hover:bg-[#f5f2fa] hover:text-[#7257f4] transition-colors text-left cursor-pointer"
+                                  >
+                                    <Pencil size={14} className="text-[#7257f4]" /> Edit Post
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-stone-400 opacity-60 text-left cursor-not-allowed"
+                                  >
+                                    <Clock size={14} /> Edit expired
+                                  </button>
+                                );
+                              })()}
 
-                {/* TEXT-ONLY POST CARD */}
-                {isTextOnly ? (
-                  <div
-                    className="p-5 select-none"
-                    onDoubleClick={() => handleDoubleTap(post.id)}
-                  >
-                    <div className="rounded-2xl border border-[#f0ecf9] bg-gradient-to-br from-[#fbfafd] via-white to-[#f7f3fe] p-5 shadow-inner">
-                      <div className="text-sm font-medium text-[#24203a] leading-relaxed">
-                        <FormattedCaption caption={post.caption} />
-                      </div>
-                    </div>
+                              <div className="my-1 border-t border-[#f0ecf9]" />
 
-                    {/* Big Heart Animation on Double Tap */}
-                    {heartAnimId === post.id && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                        <Heart
-                          size={70}
-                          className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
-                        />
+                              <button
+                                onClick={() => {
+                                  setOpenMenuPostId(null);
+                                  handleDeletePost(post.id);
+                                }}
+                                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                              >
+                                <Trash2 size={14} /> Delete Post
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
-                ) : (
-                  /* MEDIA POST CARD (Images / Videos / Carousel Album) */
-                  <PostMediaCarousel
-                    post={post}
-                    onDoubleTap={() => handleDoubleTap(post.id)}
-                    heartAnim={heartAnimId === post.id}
-                  />
-                )}
 
-                {/* Post Footer */}
-                <div className="p-4 pt-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleToggleLike(post.id)}
-                        className="group/btn relative transition-transform active:scale-75 cursor-pointer"
-                        title={isLiked ? "Unlike" : "Like"}
-                      >
-                        <Heart
-                          size={22}
-                          className={`transition-colors duration-200 ${
-                            isLiked
-                              ? "fill-[#FF3040] text-[#FF3040] scale-110"
-                              : "text-[#24203a] hover:text-[#FF3040]"
-                          }`}
-                        />
-                      </button>
+                  {isTextOnly ? (
+                    <div
+                      className="p-5 select-none relative"
+                      onDoubleClick={() => handleDoubleTap(post.id)}
+                    >
+                      <div className="rounded-2xl border border-[#f0ecf9] bg-gradient-to-br from-[#fbfafd] via-white to-[#f7f3fe] p-5 shadow-inner">
+                        <div className="text-sm font-medium text-[#24203a] leading-relaxed">
+                          <FormattedCaption caption={post.caption} />
+                        </div>
+                      </div>
 
-                      {/* App Like Count (Clickable for Admins/Super Admins to see user names) */}
-                      {isAdmin ? (
-                        <button
-                          onClick={() => openLikersModal(post.id)}
-                          className="text-xs font-bold text-[#24203a] hover:text-[#7257f4] hover:underline cursor-pointer transition-colors"
-                          title="View users who liked this post"
-                        >
-                          {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
-                        </button>
-                      ) : (
-                        <span className="text-xs font-bold text-[#24203a]">
-                          {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
-                        </span>
-                      )}
-
-                      {/* App View Count (Visible ONLY to Admins & Super Admins) */}
-                      {isAdmin && (
-                        <button
-                          onClick={() => openViewersModal(post.id)}
-                          className="flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-[#7257f4] hover:underline cursor-pointer transition-colors ml-2 border-l border-stone-200 pl-3"
-                          title="View users who viewed this post"
-                        >
-                          <Eye size={14} className="text-stone-400" />
-                          {viewCounts[post.id] || 0} {viewCounts[post.id] === 1 ? "view" : "views"}
-                        </button>
+                      {heartAnimId === post.id && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                          <Heart
+                            size={70}
+                            className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
+                          />
+                        </div>
                       )}
                     </div>
-
-                    <div className="text-[10px] font-semibold tracking-wider text-stone-400 uppercase">
-                      {formatTimeAgo(post.timestamp)}
-                    </div>
-                  </div>
-
-                  {/* Caption for Media Posts */}
-                  {!isTextOnly && post.caption && (
-                    <div className="mt-2 text-xs leading-relaxed">
-                      <ExpandableCaption caption={post.caption} maxLength={100} />
+                  ) : (
+                    <div className="relative">
+                      <PostMediaCarousel
+                        post={post}
+                        onDoubleTap={() => handleDoubleTap(post.id)}
+                        heartAnim={heartAnimId === post.id}
+                      />
+                      {heartAnimId === post.id && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                          <Heart
+                            size={70}
+                            className="animate-ping fill-rose-500 text-rose-500 opacity-90 transition-all duration-300"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              </article>
-            </PostViewTracker>
-          );
+
+                  {/* Post Footer */}
+                  <div className="p-4 pt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleToggleLike(post.id)}
+                          className="group/btn relative transition-transform active:scale-75 cursor-pointer"
+                          title={isLiked ? "Unlike" : "Like"}
+                        >
+                          <Heart
+                            size={22}
+                            className={`transition-colors duration-200 ${
+                              isLiked
+                                ? "fill-[#FF3040] text-[#FF3040] scale-110"
+                                : "text-[#24203a] hover:text-[#FF3040]"
+                            }`}
+                          />
+                        </button>
+
+                        {isAdmin ? (
+                          <button
+                            onClick={() => openLikersModal(post.id)}
+                            className="text-xs font-bold text-[#24203a] hover:text-[#7257f4] hover:underline cursor-pointer transition-colors"
+                          >
+                            {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-[#24203a]">
+                            {appLikeCount} {appLikeCount === 1 ? "like" : "likes"}
+                          </span>
+                        )}
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => openViewersModal(post.id)}
+                            className="flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-[#7257f4] hover:underline cursor-pointer transition-colors ml-2 border-l border-stone-200 pl-3"
+                          >
+                            <Eye size={14} className="text-stone-400" />
+                            {viewCounts[post.id] || 0} {viewCounts[post.id] === 1 ? "view" : "views"}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="text-[10px] font-semibold tracking-wider text-stone-400 uppercase">
+                        {formatTimeAgo(post.timestamp)}
+                      </div>
+                    </div>
+
+                    {!isTextOnly && post.caption && (
+                      <div className="mt-2 text-xs leading-relaxed">
+                        <ExpandableCaption caption={post.caption} maxLength={100} />
+                      </div>
+                    )}
+                  </div>
+                </article>
+              </PostViewTracker>
+            );
           })}
+
+          {/* Instagram-style Bottom Shimmer Skeleton on Infinite Scroll */}
+          {loadingMore && (
+            <div className="space-y-6 pt-1">
+              <InstagramPostSkeleton />
+            </div>
+          )}
         </div>
       )}
 
       {/* GRID VIEW */}
-      {!loading && !error && viewMode === "grid" && filteredPosts.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-          {filteredPosts.map((post) => {
-            const appLikeCount = likeCounts[post.id] || 0;
-            const isVideo = post.media_type === "VIDEO";
-            const isCarousel = post.media_type === "CAROUSEL_ALBUM" || (post.children?.data && post.children.data.length > 1);
-            const isTextOnly = post.media_type === "TEXT" || (!post.media_url && !post.thumbnail_url);
-            const imageUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
+      {!loading && viewMode === "grid" && filteredPosts.length > 0 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+            {displayedPosts.map((post) => {
+              const appLikeCount = likeCounts[post.id] || 0;
+              const isVideo = post.media_type === "VIDEO";
+              const isCarousel = post.media_type === "CAROUSEL_ALBUM" || (post.children?.data && post.children.data.length > 1);
+              const isTextOnly = post.media_type === "TEXT" || (!post.media_url && !post.thumbnail_url);
+              const imageUrl = isVideo ? post.thumbnail_url || post.media_url : post.media_url;
 
-            return (
-              <PostViewTracker key={post.id} postId={post.id} onVisible={recordPostView}>
-                <div
-                  onClick={() => setSelectedPost(post)}
-                  className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                >
-                {isTextOnly ? (
-                  <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[#7257f4] to-[#bc59ec] p-3.5 text-white">
-                    <MessageSquareText size={18} className="opacity-80" />
-                    <p className="line-clamp-3 text-xs font-bold leading-snug">
-                      {post.caption}
-                    </p>
-                    <span className="text-[9px] font-semibold opacity-75">
-                      {formatTimeAgo(post.timestamp)}
-                    </span>
-                  </div>
-                ) : imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={post.caption?.slice(0, 80) || "Post"}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <InstagramIcon size={32} className="text-stone-300" />
-                  </div>
-                )}
+              return (
+                <PostViewTracker key={post.id} postId={post.id} onVisible={recordPostView}>
+                  <div
+                    onClick={() => setSelectedPost(post)}
+                    className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-stone-100 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+                  >
+                    {isTextOnly ? (
+                      <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[#7257f4] to-[#bc59ec] p-3.5 text-white">
+                        <MessageSquareText size={18} className="opacity-80" />
+                        <p className="line-clamp-3 text-xs font-bold leading-snug">
+                          {post.caption}
+                        </p>
+                        <span className="text-[9px] font-semibold opacity-75">
+                          {formatTimeAgo(post.timestamp)}
+                        </span>
+                      </div>
+                    ) : imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={post.caption?.slice(0, 80) || "Post"}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <InstagramIcon size={32} className="text-stone-300" />
+                      </div>
+                    )}
 
-                {/* Multiple Images Carousel Badge for Grid Tile */}
-                {isCarousel && (
-                  <div className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white backdrop-blur-md">
-                    <SquareStack size={12} />
-                  </div>
-                )}
+                    {isCarousel && (
+                      <div className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white backdrop-blur-md">
+                        <SquareStack size={12} />
+                      </div>
+                    )}
 
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center gap-4 bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
-                  <div className="flex items-center gap-1 text-xs font-extrabold text-white">
-                    <Heart size={16} className="fill-white text-white" />
-                    {appLikeCount}
+                    <div className="absolute inset-0 flex items-center justify-center gap-4 bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                      <div className="flex items-center gap-1 text-xs font-extrabold text-white">
+                        <Heart size={16} className="fill-white text-white" />
+                        {appLikeCount}
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openViewersModal(post.id);
+                          }}
+                          className="flex items-center gap-1 text-xs font-extrabold text-white hover:text-amber-300 transition-colors cursor-pointer"
+                        >
+                          <Eye size={16} />
+                          {viewCounts[post.id] || 0}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {isAdmin && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openViewersModal(post.id);
-                      }}
-                      className="flex items-center gap-1 text-xs font-extrabold text-white hover:text-amber-300 transition-colors cursor-pointer"
-                      title="Click to see members who viewed this post"
-                    >
-                      <Eye size={16} />
-                      {viewCounts[post.id] || 0}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </PostViewTracker>
-          );
-          })}
+                </PostViewTracker>
+              );
+            })}
+          </div>
+
+          {/* Instagram Grid Bottom Shimmer Skeleton on Infinite Scroll */}
+          {loadingMore && (
+            <div className="pt-2">
+              <InstagramGridSkeleton count={4} />
+            </div>
+          )}
         </div>
       )}
 
+      {/* INFINITE SCROLL SENTINEL */}
+      {hasMore && (
+        <div ref={sentinelRef} className="flex flex-col items-center justify-center py-6 gap-2">
+          {!loadingMore && (
+            <span className="text-[11px] text-stone-400 font-medium">
+              Scroll down to load more ({filteredPosts.length - visibleCount} remaining)
+            </span>
+          )}
+        </div>
+      )}
+      </div>
+
       {/* LIGHTBOX PREVIEW MODAL */}
-      {selectedPost && (
+      {selectedPost && mounted && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in cursor-pointer select-none"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in cursor-pointer select-none"
           onClick={() => setSelectedPost(null)}
         >
-          {/* Top-Right Floating Screen Close Button */}
           <button
             onClick={() => setSelectedPost(null)}
             className="absolute top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:bg-white/40 hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
@@ -1918,8 +2007,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleToggleLike(selectedPost.id)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#24203a] active:scale-95 transition-transform"
-                    title={likedPosts[selectedPost.id] ? "Unlike" : "Like"}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#24203a] active:scale-95 transition-transform cursor-pointer"
                   >
                     <Heart
                       size={18}
@@ -1935,7 +2023,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                     <button
                       onClick={() => openLikersModal(selectedPost.id)}
                       className="text-xs font-bold text-[#24203a] hover:text-[#7257f4] hover:underline cursor-pointer"
-                      title="View users who liked this post"
                     >
                       {(likeCounts[selectedPost.id] || 0)} likes
                     </button>
@@ -1958,31 +2045,29 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CREATE POST MODAL DIALOG */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border border-[#ebe7f6] custom-scrollbar">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
-              <h3 className="text-base font-bold text-[#24203a]">
+      {isCreateModalOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border border-stone-100 no-scrollbar">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h3 className="heading-md">
                 Create SSYM App Post
               </h3>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleCreatePost} className="mt-4 space-y-4">
-              {/* Text / Caption Input (Primary) */}
               <div>
-                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                <label className="input-label">
                   What&apos;s on your mind? (Text Post)
                 </label>
                 <textarea
@@ -1990,13 +2075,12 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                   placeholder="Type your message, announcement or hashtags (#shivsaiyuvakmandal)..."
                   value={newCaption}
                   onChange={(e) => setNewCaption(e.target.value)}
-                  className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] p-3 text-xs text-[#24203a] placeholder:text-stone-400 focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+                  className="input-base p-3 text-xs resize-none"
                 />
               </div>
 
-              {/* Optional Media File Upload */}
               <div>
-                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                <label className="input-label">
                   Attach Photo / Video <span className="font-normal text-stone-400">(Optional)</span>
                 </label>
                 <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#ebe7f6] bg-[#fbfafd] p-3 text-center hover:bg-[#f7f4fd] transition-colors">
@@ -2014,7 +2098,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                           setNewMediaUrl("");
                           setNewMediaType("TEXT");
                         }}
-                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black"
+                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black cursor-pointer"
                       >
                         <X size={14} />
                       </button>
@@ -2039,7 +2123,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 </div>
               </div>
 
-              {/* Pin Option for Admins */}
               <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3">
                 <label className="flex items-center justify-between cursor-pointer select-none">
                   <span className="text-xs font-bold text-[#24203a] flex items-center gap-1.5">
@@ -2049,7 +2132,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                     type="checkbox"
                     checked={isCreatePinned}
                     onChange={(e) => setIsCreatePinned(e.target.checked)}
-                    className="h-4 w-4 rounded accent-[#7257f4]"
+                    className="h-4 w-4 rounded accent-[#7257f4] cursor-pointer"
                   />
                 </label>
 
@@ -2063,7 +2146,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                         onClick={() => setCreatePinDuration(dur)}
                         className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                           createPinDuration === dur
-                            ? "bg-[#7257f4] text-white shadow-sm"
+                            ? "bg-[#7257f4] text-white shadow-xs"
                             : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
                         }`}
                       >
@@ -2074,7 +2157,6 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 )}
               </div>
 
-              {/* Schedule Option for Admins */}
               <div className="rounded-2xl border border-violet-200/80 bg-[#f9f7fe] p-3.5 space-y-2">
                 <label className="flex items-center justify-between cursor-pointer select-none">
                   <span className="text-xs font-bold text-[#24203a] flex items-center gap-1.5">
@@ -2091,13 +2173,13 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                         setCreateScheduledAt(localIso);
                       }
                     }}
-                    className="h-4 w-4 rounded accent-[#7257f4]"
+                    className="h-4 w-4 rounded accent-[#7257f4] cursor-pointer"
                   />
                 </label>
 
                 {isCreateScheduled && (
                   <div className="pt-2 border-t border-[#ebe3fa] space-y-2 animate-in fade-in">
-                    <label className="block text-[11px] font-bold text-[#24203a]">
+                    <label className="input-label">
                       Publish Date & Time:
                     </label>
                     <SSYMCalendarPicker
@@ -2105,52 +2187,54 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                       onChange={setCreateScheduledAt}
                     />
                     <p className="text-[10px] font-medium text-stone-400">
-                      Post will be hidden from members until the scheduled time arrives.
+                      Post will be hidden from members until scheduled time arrives.
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-stone-100">
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="rounded-2xl px-4 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-100"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="sm"
                   disabled={!newCaption.trim() && !newMediaUrl.trim()}
-                  className="rounded-2xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] px-5 py-2 text-xs font-bold text-white shadow-md shadow-violet-200 disabled:opacity-50 transition-all hover:scale-105"
                 >
                   {isCreateScheduled ? "Schedule Post" : "Publish Post"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* PIN DURATION MODAL DIALOG */}
-      {pinningPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-[#ebe7f6]">
+      {/* PIN DURATION MODAL */}
+      {pinningPost && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-stone-100">
             <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
-              <h3 className="text-base font-bold text-[#24203a] flex items-center gap-2">
+              <h3 className="heading-md flex items-center gap-2">
                 <Pin size={18} className="text-amber-500 fill-amber-500" /> Pin Post Options
               </h3>
               <button
                 onClick={() => setPinningPost(null)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                className="rounded-xl p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             <p className="mt-3 text-xs text-stone-600 font-medium leading-relaxed">
-              Choose how long this post should stay pinned at the top of the feed and featured in story highlights:
+              Choose how long this post should stay pinned at top of feed and in stories:
             </p>
 
             <div className="mt-4 space-y-2.5">
@@ -2173,21 +2257,21 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* EDIT POST MODAL DIALOG (Admins & Super Admins Only, 15 Min Limit) */}
-      {editingPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-[#ebe7f6]">
-            {/* Modal Header */}
+      {/* EDIT POST MODAL */}
+      {editingPost && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-stone-100">
             <div className="flex items-center justify-between border-b border-[#f4f2fa] pb-3">
-              <h3 className="text-base font-bold text-[#24203a] flex items-center gap-2">
+              <h3 className="heading-md flex items-center gap-2">
                 <Pencil size={16} className="text-[#7257f4]" /> Edit Post
               </h3>
               <button
                 onClick={() => setEditingPost(null)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-xl p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -2197,24 +2281,21 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               <Clock size={13} className="text-amber-600 shrink-0" /> Edit time limit: Posts can only be edited within 15 minutes of creation.
             </p>
 
-            {/* Modal Form */}
             <form onSubmit={handleEditPost} className="mt-4 space-y-4">
-              {/* Caption Input */}
               <div>
-                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                <label className="input-label">
                   Edit Text / Caption
                 </label>
                 <textarea
                   rows={4}
                   value={editCaption}
                   onChange={(e) => setEditCaption(e.target.value)}
-                  className="w-full rounded-2xl border border-[#ebe7f6] bg-[#fdfcff] p-3 text-xs text-[#24203a] focus:border-[#7257f4] focus:outline-none focus:ring-2 focus:ring-[#7257f4]/15"
+                  className="input-base p-3 text-xs resize-none"
                 />
               </div>
 
-              {/* Optional Media File Update */}
               <div>
-                <label className="block text-xs font-semibold text-[#24203a] mb-1">
+                <label className="input-label">
                   Update Photo / Video <span className="font-normal text-stone-400">(Optional)</span>
                 </label>
                 <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#ebe7f6] bg-[#fbfafd] p-3 text-center">
@@ -2232,7 +2313,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                           setEditMediaUrl("");
                           setEditMediaType("TEXT");
                         }}
-                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black"
+                        className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black cursor-pointer"
                       >
                         <X size={14} />
                       </button>
@@ -2254,48 +2335,49 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                 </div>
               </div>
 
-              {/* Submit Buttons */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-stone-100">
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setEditingPost(null)}
-                  className="rounded-2xl px-4 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-100"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="rounded-2xl bg-gradient-to-r from-[#7257f4] to-[#bc59ec] px-5 py-2 text-xs font-bold text-white shadow-md shadow-violet-200 transition-all hover:scale-105"
+                  variant="primary"
+                  size="sm"
                 >
                   Save Changes
-                </button>
+                </Button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* LIKERS MODAL (Admins & Super Admins Only) */}
-      {likersModalPostId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#ebe7f6]">
-            {/* Header */}
+      {/* LIKERS MODAL */}
+      {likersModalPostId && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white shadow-2xl border border-stone-100">
             <div className="flex items-center justify-between border-b border-[#f0ecf9] px-5 py-4">
-              <h3 className="text-sm font-bold text-[#24203a] flex items-center gap-2">
+              <h3 className="heading-md flex items-center gap-2">
                 <Heart size={16} className="fill-[#FF3040] text-[#FF3040]" /> Liked by
               </h3>
               <button
                 onClick={() => setLikersModalPostId(null)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-xl p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Content List */}
             <div className="max-h-80 overflow-y-auto p-4 space-y-2.5">
               {loadingLikers ? (
                 <div className="flex items-center justify-center py-8 text-xs font-medium text-stone-500">
+                  <Loader2 size={16} className="animate-spin text-brand mr-2" />
                   Loading users...
                 </div>
               ) : likers.length === 0 ? (
@@ -2309,7 +2391,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                     className="flex items-center justify-between rounded-2xl border border-[#f5f2fa] bg-[#faf8fc] p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-sm">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-xs">
                         {user.name?.slice(0, 2).toUpperCase() || "U"}
                       </div>
                       <div>
@@ -2319,7 +2401,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                         )}
                       </div>
                     </div>
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-[#7257f4] uppercase">
+                    <span className="badge-brand">
                       {user.role === "SUPER_ADMIN"
                         ? "Super Admin"
                         : user.role === "ADMIN"
@@ -2331,31 +2413,31 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* VIEWERS MODAL DIALOG (Admins & Super Admins Only) */}
-      {viewersModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#ebe7f6]">
-            {/* Header */}
+      {/* VIEWERS MODAL */}
+      {viewersModalOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl border border-stone-100">
             <div className="flex items-center justify-between border-b border-[#f4f2fa] p-4">
-              <h3 className="text-sm font-bold text-[#24203a] flex items-center gap-2">
+              <h3 className="heading-md flex items-center gap-2">
                 <Eye size={16} className="text-[#7257f4]" />
                 Viewed By ({viewersList.length})
               </h3>
               <button
                 onClick={() => setViewersModalOpen(false)}
-                className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                className="rounded-xl p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Content List */}
             <div className="max-h-80 overflow-y-auto p-4 space-y-2.5">
               {viewersLoading ? (
                 <div className="flex items-center justify-center py-8 text-xs font-medium text-stone-500">
+                  <Loader2 size={16} className="animate-spin text-brand mr-2" />
                   Loading viewers...
                 </div>
               ) : viewersList.length === 0 ? (
@@ -2369,7 +2451,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                     className="flex items-center justify-between rounded-2xl border border-[#f5f2fa] bg-[#faf8fc] p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-sm">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7257f4] to-[#bc59ec] text-xs font-bold text-white shadow-xs">
                         {viewer.name?.slice(0, 2).toUpperCase() || "U"}
                       </div>
                       <div>
@@ -2380,7 +2462,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-[#7257f4] uppercase">
+                      <span className="badge-brand">
                         {viewer.role === "SUPER_ADMIN"
                           ? "Super Admin"
                           : viewer.role === "ADMIN"
@@ -2396,7 +2478,8 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

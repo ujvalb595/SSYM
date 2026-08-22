@@ -1,30 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search, UsersRound, X } from "lucide-react";
+import { UsersRound, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AddMemberDialog } from "./add-member-dialog";
-import { MemberActions } from "./member-actions";
+import { EditMemberDialog } from "./edit-member-dialog";
 
 export interface MemberRowData {
   id: string;
   name: string;
   mobile: string;
-  image?: string | null;
   birthDate: string;
   rawBirthDate?: string;
-  bloodGroup: string;
+  bloodGroup?: string;
   rawBloodGroup?: string;
   initials: string;
   addedUpdatedBy?: string;
   addedUpdatedByRole?: string;
-}
-
-interface MembersDirectoryViewProps {
-  members: MemberRowData[];
-  totalCount: number;
-  canManageMembers: boolean;
-  isSuperAdmin?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -33,29 +25,36 @@ export function MembersDirectoryView({
   members,
   totalCount,
   canManageMembers,
-  isSuperAdmin = false,
-}: MembersDirectoryViewProps) {
+  isSuperAdmin,
+}: {
+  members: MemberRowData[];
+  totalCount: number;
+  canManageMembers: boolean;
+  isSuperAdmin: boolean;
+}) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter members based on search query (name, mobile, blood group, birthDate)
-  const filteredMembers = members.filter((m) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      m.name.toLowerCase().includes(q) ||
-      m.mobile.toLowerCase().includes(q) ||
-      m.bloodGroup.toLowerCase().includes(q) ||
-      m.birthDate.toLowerCase().includes(q)
+  const filteredMembers = useMemo(() => {
+    if (!search.trim()) return members;
+    const query = search.toLowerCase();
+    return members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(query) ||
+        m.mobile.includes(query) ||
+        (m.bloodGroup && m.bloodGroup.toLowerCase().includes(query)) ||
+        (m.birthDate && m.birthDate.toLowerCase().includes(query))
     );
-  });
+  }, [members, search]);
 
-  // Calculate pagination
   const totalFiltered = filteredMembers.length;
   const totalPages = Math.ceil(totalFiltered / PAGE_SIZE) || 1;
-  const safePage = Math.min(currentPage, totalPages);
+  const safePage = Math.min(Math.max(currentPage, 1), totalPages);
   const startIndex = (safePage - 1) * PAGE_SIZE;
-  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + PAGE_SIZE);
+  const paginatedMembers = filteredMembers.slice(
+    startIndex,
+    startIndex + PAGE_SIZE
+  );
 
   const startRecord = totalFiltered === 0 ? 0 : startIndex + 1;
   const endRecord = Math.min(startIndex + PAGE_SIZE, totalFiltered);
@@ -66,14 +65,14 @@ export function MembersDirectoryView({
   };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">
+          <h1 className="heading-xl">
             Members
-          </h2>
-          <p className="mt-1 text-sm text-stone-500">
+          </h1>
+          <p className="text-subtitle">
             View and manage your mandal member directory.
           </p>
         </div>
@@ -82,16 +81,16 @@ export function MembersDirectoryView({
       </div>
 
       {/* Directory Table Card Box */}
-      <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
+      <section className="card-base overflow-hidden">
         {/* Box Top Toolbar */}
         <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-violet-100 p-2.5 text-[#7257f4]">
+            <span className="btn-icon size-10">
               <UsersRound size={20} />
             </span>
             <div>
-              <h3 className="font-bold text-[#24203a]">All Members</h3>
-              <p className="text-xs text-stone-500">
+              <h3 className="heading-md">All Members</h3>
+              <p className="text-subtitle">
                 {search
                   ? `Showing ${totalFiltered} of ${totalCount} registered members`
                   : `${totalCount} registered members`}
@@ -102,20 +101,20 @@ export function MembersDirectoryView({
           {/* Searchbar inside Card Box Header */}
           <label className="relative block">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              size={17}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+              size={16}
             />
             <input
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full rounded-xl border border-[#e8e3f2] py-2 pl-10 pr-9 text-sm outline-none placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100 sm:w-72"
+              className="input-base pl-9 text-xs sm:w-72"
               placeholder="Search members by name, mobile..."
             />
             {search && (
               <button
                 type="button"
                 onClick={() => handleSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -125,95 +124,109 @@ export function MembersDirectoryView({
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-[#faf9ff] text-xs uppercase tracking-wide text-stone-400">
+            <thead className="bg-[#faf9ff] text-caption border-b border-stone-100">
               <tr>
-                <th className="px-6 py-4 font-semibold">Member</th>
-                <th className="px-6 py-4 font-semibold">Mobile No.</th>
-                <th className="px-6 py-4 font-semibold">Birth Date</th>
-                <th className="px-6 py-4 font-semibold">Blood Group</th>
+                <th className="px-6 py-4 font-bold">Member</th>
+                <th className="px-6 py-4 font-bold">Mobile No.</th>
+                <th className="px-6 py-4 font-bold">Birth Date</th>
+                <th className="px-6 py-4 font-bold">Blood Group</th>
                 {isSuperAdmin && (
-                  <th className="px-6 py-4 font-semibold">Added / Updated By</th>
+                  <th className="px-6 py-4 font-bold">Added / Updated By</th>
                 )}
                 {canManageMembers && (
-                  <th className="px-6 py-4 text-right font-semibold">
+                  <th className="px-6 py-4 text-right font-bold">
                     Action
                   </th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {paginatedMembers.length > 0 ? (
-                paginatedMembers.map((m) => (
+              {paginatedMembers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={canManageMembers ? (isSuperAdmin ? 6 : 5) : (isSuperAdmin ? 5 : 4)}
+                    className="p-12 text-center"
+                  >
+                    <p className="heading-md">No Members Found</p>
+                    <p className="text-subtitle mt-1">
+                      {search
+                        ? `No members found matching "${search}".`
+                        : "No members registered yet."}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedMembers.map((member) => (
                   <tr
-                    key={m.id}
+                    key={member.id}
                     className="border-t border-stone-100 transition hover:bg-violet-50/40"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        {m.image ? (
-                          <img
-                            src={m.image}
-                            alt={m.name}
-                            className="size-9 rounded-xl object-cover ring-1 ring-violet-200 shrink-0"
-                          />
-                        ) : (
-                          <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-xs font-bold text-[#7657f6] shrink-0">
-                            {m.initials}
-                          </span>
-                        )}
-                        <Link
-                          href={`/members/${m.id}`}
-                          className="font-semibold text-[#302a49] hover:text-[#7257f4] hover:underline"
-                        >
-                          {m.name}
-                        </Link>
+                        <span className="flex size-9 items-center justify-center rounded-xl bg-violet-100 text-xs font-bold text-brand uppercase">
+                          {member.initials || member.name.charAt(0)}
+                        </span>
+                        <div>
+                          <Link
+                            href={`/members/${member.id}`}
+                            className="font-bold text-[#24203a] hover:text-brand hover:underline"
+                          >
+                            {member.name}
+                          </Link>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-stone-600">{m.mobile}</td>
-                    <td className="px-6 py-4 text-stone-600">{m.birthDate}</td>
-                    <td className="px-6 py-4">
-                      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">
-                        {m.bloodGroup}
-                      </span>
+
+                    <td className="px-6 py-4 font-medium text-stone-600">
+                      {member.mobile}
                     </td>
+
+                    <td className="px-6 py-4 text-stone-600">
+                      {member.birthDate || "—"}
+                    </td>
+
+                    <td className="px-6 py-4">
+                      {member.bloodGroup ? (
+                        <span className="badge-brand">
+                          {member.bloodGroup}
+                        </span>
+                      ) : (
+                        <span className="text-stone-400">—</span>
+                      )}
+                    </td>
+
                     {isSuperAdmin && (
                       <td className="px-6 py-4">
-                        <div>
-                          <span className="text-xs font-semibold text-stone-800 block">
-                            {m.addedUpdatedBy || "Super Admin"}
+                        {member.addedUpdatedBy ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-stone-100 px-2 py-1 text-xs text-stone-600">
+                            <span className="font-semibold">{member.addedUpdatedBy}</span>
+                            {member.addedUpdatedByRole && (
+                              <span className="text-[10px] text-stone-400">
+                                ({member.addedUpdatedByRole.replace("_", " ")})
+                              </span>
+                            )}
                           </span>
-                          {m.addedUpdatedByRole && (
-                            <span className="text-[10px] text-stone-500 font-medium block">
-                              {m.addedUpdatedByRole === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
-                            </span>
-                          )}
-                        </div>
+                        ) : (
+                          <span className="text-stone-400 text-xs">Self / Initial</span>
+                        )}
                       </td>
                     )}
+
                     {canManageMembers && (
                       <td className="px-6 py-4 text-right">
-                        <MemberActions
+                        <EditMemberDialog
                           member={{
-                            id: m.id,
-                            name: m.name,
+                            id: member.id,
+                            name: member.name,
+                            mobile: member.mobile,
+                            rawBirthDate: member.rawBirthDate,
+                            bloodGroup: member.rawBloodGroup || member.bloodGroup,
                           }}
                         />
                       </td>
                     )}
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={4 + (canManageMembers ? 1 : 0) + (isSuperAdmin ? 1 : 0)}
-                    className="p-12 text-center text-stone-500"
-                  >
-                    <p className="font-bold text-[#24203a]">No members found</p>
-                    <p className="mt-1 text-xs text-stone-400">
-                      No members match &quot;{search}&quot;. Try adjusting your search query.
-                    </p>
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
@@ -230,7 +243,7 @@ export function MembersDirectoryView({
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                 disabled={safePage === 1}
-                className="inline-flex items-center gap-1 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <ChevronLeft size={14} /> Previous
               </button>
@@ -239,9 +252,9 @@ export function MembersDirectoryView({
                 <button
                   key={pg}
                   onClick={() => setCurrentPage(pg)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                     pg === safePage
-                      ? "bg-[#7257f4] text-white shadow-sm"
+                      ? "bg-brand text-white shadow-xs font-bold"
                       : "border border-stone-200 hover:bg-stone-50 text-stone-700"
                   }`}
                 >
@@ -252,7 +265,7 @@ export function MembersDirectoryView({
               <button
                 onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                 disabled={safePage === totalPages}
-                className="inline-flex items-center gap-1 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Next <ChevronRight size={14} />
               </button>

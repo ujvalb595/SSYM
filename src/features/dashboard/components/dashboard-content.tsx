@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
   IndianRupee,
-  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -106,7 +104,7 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
 
       {/* Metrics Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {metrics.map(([label, value, trend, Icon, tone], index) => (
+        {metrics.map(([label, value, trend, Icon, tone]) => (
           <article
             key={label}
             className="rounded-2xl border border-white bg-white/90 p-5 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]"

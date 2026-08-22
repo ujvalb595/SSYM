@@ -40,38 +40,17 @@ const seedMembers: MemberRowData[] = [
     bloodGroup: "A+",
     initials: "RM",
   },
-  {
-    id: "m4",
-    name: "Kavya Desai",
-    mobile: "9913854720",
-    birthDate: "19 Mar 2000",
-    bloodGroup: "AB+",
-    initials: "KD",
-  },
-  {
-    id: "m5",
-    name: "Ishaan Joshi",
-    mobile: "9099015236",
-    birthDate: "02 Jan 1997",
-    bloodGroup: "O-",
-    initials: "IJ",
-  },
-  {
-    id: "m6",
-    name: "Anaya Shah",
-    mobile: "9725588041",
-    birthDate: "11 Sep 1998",
-    bloodGroup: "B+",
-    initials: "AS",
-  },
 ];
 
 export default async function MembersPage() {
   const session = await auth();
-  if (!session?.user || session.user.isActive === false) redirect("/login");
+
+  if (!session?.user || session.user.isActive === false) {
+    redirect("/login");
+  }
 
   const userRole = session.user.role;
-  const canManageMembers = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
+  const canManageMembers = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
   const isSuperAdmin = userRole === "SUPER_ADMIN";
 
   let members: MemberRowData[] = [];
@@ -79,40 +58,40 @@ export default async function MembersPage() {
 
   if (process.env.PRISMA_DATABASE_URL) {
     try {
-      const users = await prisma.user.findMany({
-        orderBy: { updatedAt: "desc" },
-        include: {
-          createdBy: {
-            select: {
-              name: true,
-              role: true,
+      const [users, auditLogs] = await Promise.all([
+        prisma.user.findMany({
+          orderBy: { updatedAt: "desc" },
+          include: {
+            createdBy: {
+              select: {
+                name: true,
+                role: true,
+              },
+            },
+            updatedBy: {
+              select: {
+                name: true,
+                role: true,
+              },
             },
           },
-          updatedBy: {
-            select: {
-              name: true,
-              role: true,
+        }),
+        prisma.auditLog.findMany({
+          where: {
+            entity: "User",
+            action: { in: ["CREATE", "UPDATE"] },
+          },
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: {
+              select: {
+                name: true,
+                role: true,
+              },
             },
           },
-        },
-      });
-
-      // Audit logs fallback for records where createdBy/updatedBy isn't set yet
-      const auditLogs = await prisma.auditLog.findMany({
-        where: {
-          entity: "User",
-          action: { in: ["CREATE", "UPDATE"] },
-        },
-        orderBy: { createdAt: "desc" },
-        include: {
-          user: {
-            select: {
-              name: true,
-              role: true,
-            },
-          },
-        },
-      });
+        }),
+      ]);
 
       totalCount = users.length;
 
@@ -178,7 +157,7 @@ export default async function MembersPage() {
 
   return (
     <DashboardShell section="Management" title="Member Directory">
-      <main className="mx-auto max-w-7xl p-5 md:p-9">
+      <main className="mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
         <MembersDirectoryView
           members={members}
           totalCount={totalCount}

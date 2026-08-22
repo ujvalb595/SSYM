@@ -1,11 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import type { ReactNode } from "react";
+import { FormEvent, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Droplet, Eye, EyeOff, LockKeyhole, Phone, Plus, UserRound, X } from "lucide-react";
+import {
+  Droplet,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Phone,
+  Plus,
+  UserRound,
+  X,
+} from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Button } from "@/components/ui/button";
 
 const bloodGroupOptions = [
   { label: "A+", value: "A_POSITIVE" },
@@ -20,33 +30,40 @@ const bloodGroupOptions = [
 
 export function AddMemberDialog() {
   const [open, setOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
+
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+
+    const name = String(form.get("name") || "").trim();
+    const birthdate = String(form.get("birthdate") || "").trim();
+    const bloodGroup = String(form.get("bloodGroup") || "").trim();
+    const mobile = String(form.get("mobile") || "").trim();
+    const password = String(form.get("password") || "").trim();
 
     try {
       const response = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.get("name"),
-          birthDate: form.get("birthdate"),
-          mobile: form.get("mobile"),
-          bloodGroup: form.get("bloodGroup") || null,
-          password: form.get("password"),
-        }),
+        body: JSON.stringify({ name, birthdate, bloodGroup, mobile, password }),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as { message?: string };
+
       if (!response.ok) {
         setError(result.message ?? "Unable to add member.");
         setSubmitting(false);
@@ -60,7 +77,7 @@ export function AddMemberDialog() {
         setSaved(false);
         setSubmitting(false);
         router.refresh();
-      }, 700);
+      }, 600);
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setSubmitting(false);
@@ -69,143 +86,153 @@ export function AddMemberDialog() {
 
   return (
     <>
-      <button
+      <Button
+        variant="primary"
+        size="md"
         onClick={() => {
           setError("");
           setOpen(true);
         }}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200 hover:brightness-105"
       >
-        <Plus size={17} /> Add member
-      </button>
+        <Plus size={18} />
+        <span>Add Member</span>
+      </Button>
 
-      {open && (
-        <div role="dialog" aria-modal="true" aria-labelledby="add-member-title" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            aria-label="Close dialog"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-[#28203e]/35 backdrop-blur-sm"
-          />
-
-          <section className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="bg-gradient-to-r from-[#654dde] to-[#ad58ef] px-6 py-5 text-white">
+      {open && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl border border-stone-100 animate-in zoom-in-95">
+            <div className="bg-gradient-to-r from-[#7257f4] to-[#bd59ec] px-6 py-5 text-white">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-white/70">MEMBER DIRECTORY</p>
-                  <h2 id="add-member-title" className="mt-1 text-xl font-bold">Add New Member</h2>
+                  <p className="text-xs font-bold tracking-[0.16em] text-white/80 uppercase">Member Directory</p>
+                  <h2 className="mt-1 text-xl font-extrabold text-white">Add New Member</h2>
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  aria-label="Close"
-                  className="rounded-lg p-1 text-white/80 hover:bg-white/15 hover:text-white"
+                  className="rounded-xl p-1.5 text-white/80 hover:bg-white/20 hover:text-white transition cursor-pointer"
                 >
-                  <X size={21} />
+                  <X size={20} />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={submit} className="space-y-4 p-6">
-              <Field label="Full Name" icon={<UserRound size={17} />}>
-                <input required name="name" placeholder="Enter member name" className="field" />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Birthdate" icon={<CalendarDays size={17} />}>
-                  <DatePicker name="birthdate" placeholder="Select date" required />
-                </Field>
-
-                <Field label="Blood Group" icon={<Droplet size={17} />}>
-                  <CustomSelect
-                    name="bloodGroup"
-                    defaultValue=""
-                    placeholder="Select Blood Group"
-                    options={bloodGroupOptions}
-                  />
-                </Field>
+            {saved ? (
+              <div className="my-8 rounded-2xl bg-emerald-50 p-6 text-center text-emerald-800 border border-emerald-200 mx-6">
+                <p className="font-extrabold text-base">Member Added Successfully! 🎉</p>
+                <p className="mt-1 text-xs text-emerald-600 font-medium">The member account has been registered.</p>
               </div>
-
-              <Field label="Mobile Number" icon={<Phone size={17} />}>
-                <input required name="mobile" type="tel" inputMode="numeric" pattern="[0-9]{10}" maxLength={10} placeholder="10-digit mobile number" className="field" />
-              </Field>
-
-              <Field label="Password" icon={<LockKeyhole size={17} />}>
-                <div className="relative w-full">
-                  <input
-                    required
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    minLength={8}
-                    placeholder="Set a secure password"
-                    className="field pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label="Toggle password visibility"
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
-                  >
-                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
+            ) : (
+              <form onSubmit={submit} className="space-y-4 p-6">
+                <div>
+                  <label className="input-label">
+                    Full Name *
+                  </label>
+                  <div className="relative">
+                    <UserRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input required name="name" placeholder="Enter member name" className="input-base pl-9 text-xs sm:text-sm" />
+                  </div>
                 </div>
-              </Field>
 
-              {error && (
-                <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                  {error}
-                </p>
-              )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="input-label">
+                      Birthdate *
+                    </label>
+                    <DatePicker name="birthdate" placeholder="Select date" required />
+                  </div>
 
-              <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800">
-                The member can use this mobile number and password to sign in after their account is created.
-              </p>
+                  <div>
+                    <label className="input-label">
+                      Blood Group
+                    </label>
+                    <CustomSelect
+                      name="bloodGroup"
+                      defaultValue=""
+                      placeholder="Select Blood Group"
+                      options={bloodGroupOptions}
+                      icon={<Droplet size={15} />}
+                    />
+                  </div>
+                </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl border border-[#e5e0f1] px-4 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={submitting}
-                  className="rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200 disabled:opacity-60"
-                >
-                  {saved ? "Member added" : submitting ? "Adding…" : "Add Member"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+                <div>
+                  <label className="input-label">
+                    Mobile Number *
+                  </label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      required
+                      name="mobile"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      placeholder="10-digit mobile number"
+                      className="input-base pl-9 text-xs sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="input-label">
+                    Account Password *
+                  </label>
+                  <div className="relative">
+                    <LockKeyhole size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      required
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      minLength={8}
+                      placeholder="Set a secure password"
+                      className="input-base pl-9 pr-10 text-xs sm:text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label="Toggle password visibility"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">
+                    {error}
+                  </div>
+                )}
+
+                <div className="rounded-2xl bg-violet-50 p-3 text-xs text-[#7257f4] font-medium border border-violet-100">
+                  The member can use this mobile number and password to sign in after their account is created.
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-4 border-t border-stone-100">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    loading={submitting}
+                  >
+                    {submitting ? "Adding..." : "Add Member"}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
-
-      <style jsx>{`
-        .field {
-          width: 100%;
-          height: 2.75rem;
-          border: 1px solid #e6e1f3;
-          border-radius: 0.75rem;
-          padding: 0.7rem 0.85rem;
-          outline: none;
-          font-size: 0.875rem;
-        }
-        .field:focus {
-          border-color: #8660ee;
-          box-shadow: 0 0 0 4px #ede9fe;
-        }
-      `}</style>
     </>
-  );
-}
-
-function Field({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#403958]">
-        <span className="text-[#7657f6]">{icon}</span>
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }

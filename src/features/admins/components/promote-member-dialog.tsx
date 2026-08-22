@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
 import { UserCheck, Shield, Search, X, Plus } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Button } from "@/components/ui/button";
 
 export interface NonAdminUser {
   id: string;
@@ -28,6 +29,7 @@ export function PromoteMemberDialog({ members }: { members: NonAdminUser[] }) {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [mounted, setMounted] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -40,144 +42,141 @@ export function PromoteMemberDialog({ members }: { members: NonAdminUser[] }) {
       m.mobile.includes(search)
   );
 
-  const selectedMember = members.find((m) => m.id === selectedMemberId);
-
   async function handlePromote() {
     if (!selectedMemberId) {
-      setError("Please select a member to promote.");
+      setError("Please select a member first.");
       return;
     }
     setError("");
     setSubmitting(true);
 
     try {
-      const res = await fetch(`/api/members/${selectedMemberId}`, {
+      const res = await fetch(`/api/admins/${selectedMemberId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: selectedMember?.name,
-          mobile: selectedMember?.mobile,
-          role: selectedRole as Role,
-        }),
+        body: JSON.stringify({ role: selectedRole as Role }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Failed to promote member.");
+        setError(data.message || "Failed to update role.");
         setSubmitting(false);
         return;
       }
 
-      setSuccessMsg(
-        `${selectedMember?.name} is now promoted to ${
-          selectedRole === "SUPER_ADMIN" ? "Super Admin" : "Admin"
-        }!`
-      );
+      setSuccessMsg("Member role updated successfully! 🎉");
       setTimeout(() => {
         setOpen(false);
         setSuccessMsg("");
         setSelectedMemberId("");
         setSubmitting(false);
         router.refresh();
-      }, 1000);
+      }, 700);
     } catch {
-      setError("Network error. Please try again.");
+      setError("An error occurred. Please try again.");
       setSubmitting(false);
     }
   }
 
   return (
     <>
-      <button
+      <Button
+        variant="primary"
+        size="md"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#7257f4] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#5f44e2] active:scale-95"
       >
-        <Plus size={16} className="stroke-[2.5]" />
-        Add Admin
-      </button>
+        <Plus size={16} />
+        <span>Add Admin</span>
+      </Button>
 
       {open && mounted
         ? createPortal(
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="relative w-full max-w-lg rounded-2xl border border-stone-100 bg-white p-6 shadow-2xl md:p-8">
+              <div className="relative w-full max-w-lg rounded-3xl border border-stone-100 bg-white p-6 shadow-2xl md:p-8 animate-in zoom-in-95">
                 <div className="flex items-center justify-between border-b border-stone-100 pb-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-violet-100 text-[#7257f4]">
+                    <span className="btn-icon size-10">
                       <Shield size={20} />
                     </span>
                     <div>
-                      <h3 className="text-lg font-bold text-[#24203a]">
+                      <h3 className="heading-md">
                         Add Admin
                       </h3>
-                      <p className="text-xs text-stone-500">
+                      <p className="text-subtitle">
                         Promote an existing mandal member to Admin
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setOpen(false)}
-                    className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                    className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
                   >
                     <X size={18} />
                   </button>
                 </div>
 
                 {successMsg ? (
-                  <div className="my-8 rounded-xl bg-emerald-50 p-6 text-center text-emerald-800 border border-emerald-200">
-                    <p className="font-bold text-base">{successMsg}</p>
+                  <div className="my-8 rounded-2xl bg-emerald-50 p-6 text-center text-emerald-800 border border-emerald-200">
+                    <p className="font-extrabold text-base">{successMsg}</p>
                   </div>
                 ) : (
                   <div className="mt-5 space-y-4">
                     {error ? (
-                      <div className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">
+                      <div className="rounded-2xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">
                         {error}
                       </div>
                     ) : null}
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-600 mb-1">
-                        Select Member *
+                      <label className="input-label">
+                        Search Member *
                       </label>
-                      <div className="relative mb-2">
+                      <div className="relative">
                         <Search
+                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
                           size={16}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
                         />
                         <input
+                          type="text"
+                          placeholder="Type member name or mobile..."
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search member by name or mobile..."
-                          className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#7257f4] focus:ring-4 focus:ring-violet-100"
+                          className="input-base pl-9 text-xs sm:text-sm"
                         />
                       </div>
+                    </div>
 
-                      <div className="max-h-48 overflow-y-auto rounded-xl border border-stone-200 divide-y divide-stone-100 bg-stone-50/50">
+                    <div>
+                      <label className="input-label">
+                        Select Member ({filteredMembers.length} available)
+                      </label>
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-2xl border border-stone-200 p-2">
                         {filteredMembers.length === 0 ? (
-                          <p className="p-4 text-center text-xs text-stone-400">
-                            {members.length === 0
-                              ? "No eligible non-admin members found."
-                              : "No members match your search."}
+                          <p className="p-4 text-center text-xs text-stone-400 font-medium">
+                            No eligible members found.
                           </p>
                         ) : (
                           filteredMembers.map((m) => {
-                            const isSelected = m.id === selectedMemberId;
+                            const isSelected = selectedMemberId === m.id;
                             return (
                               <button
                                 key={m.id}
                                 type="button"
                                 onClick={() => setSelectedMemberId(m.id)}
-                                className={`w-full flex items-center justify-between p-3 text-left transition ${
+                                className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs transition cursor-pointer ${
                                   isSelected
-                                    ? "bg-violet-100/70 text-[#5436df] font-semibold"
-                                    : "hover:bg-stone-100 text-stone-700"
+                                    ? "bg-violet-50 font-bold text-brand border border-violet-200"
+                                    : "hover:bg-stone-50 text-stone-700"
                                 }`}
                               >
                                 <div>
-                                  <p className="text-sm font-semibold">{m.name}</p>
-                                  <p className="text-xs text-stone-400">{m.mobile}</p>
+                                  <span className="font-bold text-[#24203a]">{m.name}</span>
+                                  <span className="ml-2 text-stone-400">
+                                    {m.mobile}
+                                  </span>
                                 </div>
                                 {isSelected ? (
-                                  <span className="rounded-full bg-[#7257f4] p-1 text-white">
+                                  <span className="rounded-full bg-brand p-1 text-white">
                                     <UserCheck size={12} />
                                   </span>
                                 ) : null}
@@ -189,7 +188,7 @@ export function PromoteMemberDialog({ members }: { members: NonAdminUser[] }) {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-600 mb-1">
+                      <label className="input-label">
                         Assign Role *
                       </label>
                       <CustomSelect
@@ -201,22 +200,25 @@ export function PromoteMemberDialog({ members }: { members: NonAdminUser[] }) {
                       />
                     </div>
 
-                    <div className="mt-6 flex justify-end gap-3 border-t border-stone-100 pt-4">
-                      <button
+                    <div className="mt-6 flex justify-end gap-2.5 border-t border-stone-100 pt-4">
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setOpen(false)}
-                        className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-semibold text-stone-600 hover:bg-stone-50"
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="primary"
+                        size="sm"
                         onClick={handlePromote}
                         disabled={submitting || !selectedMemberId}
-                        className="rounded-xl bg-[#7257f4] px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-[#5f44e2] disabled:opacity-50"
+                        loading={submitting}
                       >
-                        {submitting ? "Adding Admin..." : "Confirm Add Admin"}
-                      </button>
+                        Confirm Add Admin
+                      </Button>
                     </div>
                   </div>
                 )}

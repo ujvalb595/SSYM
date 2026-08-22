@@ -49,12 +49,12 @@ export function DonationsList({
     <section className="space-y-6">
       {/* Metric Cards Bar */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-5 shadow-sm">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-200">
+        <div className="flex items-center gap-4 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-5 shadow-xs">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-200">
             <IndianRupee size={24} />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800/80">
+            <p className="text-caption text-emerald-800/80">
               Total Amount Received
             </p>
             <h4 className="text-2xl font-extrabold text-[#24203a]">
@@ -63,12 +63,12 @@ export function DonationsList({
           </div>
         </div>
 
-        <div className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-violet-100 text-[#7257f4]">
+        <div className="card-base flex items-center gap-4 p-5">
+          <span className="btn-icon size-12 rounded-2xl">
             <HeartHandshake size={24} />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+            <p className="text-caption">
               Total Donations Logged
             </p>
             <h4 className="text-2xl font-extrabold text-[#24203a]">{donations.length} Records</h4>
@@ -77,16 +77,16 @@ export function DonationsList({
       </div>
 
       {/* Main Donations Table Card */}
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+      <div className="card-base overflow-hidden">
         {/* Table Top Toolbar */}
         <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-violet-100 p-2.5 text-[#7257f4]">
+            <span className="btn-icon size-10">
               <HeartHandshake size={20} />
             </span>
             <div>
-              <h3 className="font-bold text-[#24203a]">All Mandal Donations</h3>
-              <p className="text-xs text-stone-500">
+              <h3 className="heading-md">All Mandal Donations</h3>
+              <p className="text-subtitle">
                 Showing {filteredDonations.length} of {donations.length} donation entries
               </p>
             </div>
@@ -94,13 +94,13 @@ export function DonationsList({
 
           <label className="relative block">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              size={17}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+              size={16}
             />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-[#e8e3f2] py-2 pl-10 pr-4 text-sm outline-none placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100 sm:w-72"
+              className="input-base pl-9 text-xs sm:w-72"
               placeholder="Search by donor, cause, or detail..."
             />
           </label>
@@ -110,22 +110,22 @@ export function DonationsList({
         <div className="overflow-x-auto">
           {filteredDonations.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="font-bold text-base text-[#24203a]">No Donation Records Found</p>
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="heading-md">No Donation Records Found</p>
+              <p className="text-subtitle mt-1">
                 {search ? `No donations matching "${search}".` : "Click Add Donation above to log your first donation."}
               </p>
             </div>
           ) : (
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-[#faf9ff] text-xs uppercase tracking-wide text-stone-400">
+              <thead className="bg-[#faf9ff] text-caption border-b border-stone-100">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Donor Name</th>
-                  <th className="px-6 py-4 font-semibold">Purpose / Cause</th>
-                  <th className="px-6 py-4 font-semibold">Detail</th>
-                  <th className="px-6 py-4 font-semibold">Donation Date</th>
-                  <th className="px-6 py-4 font-semibold">Logged By</th>
-                  <th className="px-6 py-4 text-right font-semibold">Amount</th>
-                  {canEdit && <th className="px-6 py-4 text-right font-semibold">Action</th>}
+                  <th className="px-6 py-4 font-bold">Donor Name</th>
+                  <th className="px-6 py-4 font-bold">Purpose / Cause</th>
+                  <th className="px-6 py-4 font-bold">Detail</th>
+                  <th className="px-6 py-4 font-bold">Donation Date</th>
+                  <th className="px-6 py-4 font-bold">Logged By</th>
+                  <th className="px-6 py-4 text-right font-bold">Amount</th>
+                  {canEdit && <th className="px-6 py-4 text-right font-bold">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -150,7 +150,7 @@ export function DonationsList({
 
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="flex size-7 items-center justify-center rounded-lg bg-violet-100 text-xs font-bold text-[#7257f4]">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-violet-100 text-xs font-bold text-brand">
                           <User size={13} />
                         </span>
                         <span className="text-xs font-medium text-stone-700">
