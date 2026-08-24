@@ -2,20 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm?: () => void | Promise<void>;
   title?: string;
   description?: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: "danger" | "warning" | "info";
+  variant?: "danger" | "warning" | "info" | "success";
+  icon?: React.ReactNode;
   loading?: boolean;
+  hideCancel?: boolean;
 }
 
 export function ConfirmDialog({
@@ -24,10 +26,12 @@ export function ConfirmDialog({
   onConfirm,
   title = "Are you sure?",
   description = "This action cannot be undone.",
-  confirmText = "Delete",
+  confirmText = "Continue",
   cancelText = "Cancel",
   variant = "danger",
+  icon,
   loading = false,
+  hideCancel = false,
 }: ConfirmDialogProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -48,23 +52,36 @@ export function ConfirmDialog({
 
   if (!open || !mounted) return null;
 
-  const variantStyles = {
+  const defaultVariantStyles = {
     danger: {
       iconBg: "bg-rose-50 border border-rose-200 text-rose-600",
       buttonVariant: "danger" as const,
-      icon: <Trash2 size={22} />,
+      defaultIcon: <Trash2 size={22} />,
     },
     warning: {
       iconBg: "bg-amber-50 border border-amber-200 text-amber-600",
       buttonVariant: "primary" as const,
-      icon: <AlertTriangle size={22} />,
+      defaultIcon: <AlertTriangle size={22} />,
     },
     info: {
       iconBg: "bg-violet-50 border border-violet-200 text-[#7257f4]",
       buttonVariant: "primary" as const,
-      icon: <AlertTriangle size={22} />,
+      defaultIcon: <Info size={22} />,
+    },
+    success: {
+      iconBg: "bg-emerald-50 border border-emerald-200 text-emerald-600",
+      buttonVariant: "primary" as const,
+      defaultIcon: <CheckCircle2 size={22} />,
     },
   }[variant];
+
+  const handleConfirmClick = async () => {
+    if (onConfirm) {
+      await onConfirm();
+    } else {
+      onClose();
+    }
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -74,12 +91,14 @@ export function ConfirmDialog({
       >
         {/* Top Icon & Close */}
         <div className="flex items-start justify-between">
-          <div className={`flex size-12 items-center justify-center rounded-2xl ${variantStyles.iconBg}`}>
-            {variantStyles.icon}
+          <div className={`flex size-12 items-center justify-center rounded-2xl ${defaultVariantStyles.iconBg}`}>
+            {icon || defaultVariantStyles.defaultIcon}
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={loading}
+            aria-label="Close dialog"
             className="rounded-xl p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition disabled:opacity-50 cursor-pointer"
           >
             <X size={18} />
@@ -94,20 +113,22 @@ export function ConfirmDialog({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2.5 pt-2">
+          {!hideCancel && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onClose}
+              disabled={loading}
+            >
+              {cancelText}
+            </Button>
+          )}
           <Button
             type="button"
-            variant="secondary"
+            variant={defaultVariantStyles.buttonVariant}
             size="sm"
-            onClick={onClose}
-            disabled={loading}
-          >
-            {cancelText}
-          </Button>
-          <Button
-            type="button"
-            variant={variantStyles.buttonVariant}
-            size="sm"
-            onClick={onConfirm}
+            onClick={handleConfirmClick}
             loading={loading}
           >
             {confirmText}

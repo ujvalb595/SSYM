@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
 import { MoreHorizontal, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function ExpenseRowActions({
   expense,
@@ -23,6 +25,7 @@ export function ExpenseRowActions({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number; openUpwards: boolean } | null>(null);
   const router = useRouter();
 
@@ -51,12 +54,13 @@ export function ExpenseRowActions({
     setOpen((prev) => !prev);
   };
 
-  async function handleDelete(e: React.MouseEvent) {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete the expense "${expense.title}"?`)) {
-      return;
-    }
+    setOpen(false);
+    setShowConfirm(true);
+  };
 
+  async function handleConfirmDelete() {
     setLoading(true);
 
     try {
@@ -66,19 +70,20 @@ export function ExpenseRowActions({
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.message || "Failed to delete expense.");
+        toast.error(data.message || "Failed to delete expense.");
         setLoading(false);
         return;
       }
 
-      setOpen(false);
+      toast.success("Expense deleted successfully!");
+      setShowConfirm(false);
       setLoading(false);
       if (onDeleteSuccess) {
         onDeleteSuccess(expense.id);
       }
       router.refresh();
     } catch {
-      alert("Network error.");
+      toast.error("Network error. Please try again.");
       setLoading(false);
     }
   }
@@ -111,18 +116,31 @@ export function ExpenseRowActions({
                 className="fixed z-[95] w-44 rounded-xl border border-stone-100 bg-white py-1 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
               >
                 <button
-                  onClick={handleDelete}
+                  type="button"
+                  onClick={handleDeleteClick}
                   disabled={loading}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left disabled:opacity-50"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left disabled:opacity-50 cursor-pointer"
                 >
                   <Trash2 size={14} />
-                  {loading ? "Deleting..." : "Delete Expense"}
+                  Delete Expense
                 </button>
               </div>
             </>,
             document.body
           )
         : null}
+
+      <ConfirmDialog
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Expense"
+        description={`Are you sure you want to delete the expense "${expense.title}"? This action cannot be undone.`}
+        confirmText="Delete Expense"
+        cancelText="Cancel"
+        variant="danger"
+        loading={loading}
+      />
     </>
   );
 }

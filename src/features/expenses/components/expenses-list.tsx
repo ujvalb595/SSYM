@@ -105,7 +105,7 @@ export function ExpensesList({
         </div>
 
         {/* Expenses Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[620px] overflow-y-auto no-scrollbar relative">
           {filteredExpenses.length === 0 ? (
             <div className="p-12 text-center">
               <p className="heading-md">No Expense Records Found</p>
@@ -115,7 +115,7 @@ export function ExpensesList({
             </div>
           ) : (
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-[#faf9ff] text-caption border-b border-stone-100">
+              <thead className="sticky top-0 z-20 bg-[#faf9ff] text-caption border-b border-stone-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] backdrop-blur-md">
                 <tr>
                   <th className="px-6 py-4 font-bold">Expense Title</th>
                   <th className="px-6 py-4 font-bold">Detail / Purpose</th>

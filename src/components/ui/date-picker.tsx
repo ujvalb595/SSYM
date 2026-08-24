@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface DatePickerProps {
   name: string;
@@ -120,30 +121,24 @@ export function DatePicker({
               <ChevronLeft size={18} />
             </button>
 
-            <div className="flex gap-1">
-              <select
-                value={currentMonth}
-                onChange={handleMonthChange}
-                className="cursor-pointer rounded-lg bg-violet-50/80 px-2 py-1 text-xs font-bold text-[#7257f4] outline-none hover:bg-violet-100"
-              >
-                {MONTH_NAMES.map((m, idx) => (
-                  <option key={m} value={idx}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+            <div className="flex gap-1.5 min-w-0">
+              <div className="w-28">
+                <CustomSelect
+                  value={String(currentMonth)}
+                  options={MONTH_NAMES.map((m, idx) => ({ label: m, value: String(idx) }))}
+                  onChange={(val) => setViewDate(new Date(currentYear, Number(val), 1))}
+                  size="sm"
+                />
+              </div>
 
-              <select
-                value={currentYear}
-                onChange={handleYearChange}
-                className="cursor-pointer rounded-lg bg-violet-50/80 px-2 py-1 text-xs font-bold text-[#7257f4] outline-none hover:bg-violet-100"
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+              <div className="w-20">
+                <CustomSelect
+                  value={String(currentYear)}
+                  options={years.map((y) => ({ label: String(y), value: String(y) }))}
+                  onChange={(val) => setViewDate(new Date(Number(val), currentMonth, 1))}
+                  size="sm"
+                />
+              </div>
             </div>
 
             <button

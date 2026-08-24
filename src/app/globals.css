@@ -56,9 +56,13 @@ body {
     radial-gradient(circle at 12% 10%, rgb(224 212 255 / 55%), transparent 26rem),
     radial-gradient(circle at 88% 88%, rgb(216 248 255 / 55%), transparent 30rem),
     var(--background);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 /* ==========================================================================
@@ -368,16 +372,36 @@ body {
 }
 
 /* ==========================================================================
-   SCROLLBAR & UTILITY HELPERS
+   GLOBAL SCROLLBAR STYLES (Hide scrollbars everywhere while keeping smooth scrolling)
    ========================================================================== */
 
+*,
+*::before,
+*::after,
+html,
+body {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox and standard CSS */
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
 .no-scrollbar::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 .glass-surface {

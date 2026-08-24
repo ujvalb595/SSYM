@@ -31,9 +31,9 @@ export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto max-h-[620px] overflow-y-auto no-scrollbar relative">
       <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="bg-[#faf9ff] text-xs uppercase tracking-wide text-stone-400">
+        <thead className="sticky top-0 z-20 bg-[#faf9ff] text-xs uppercase tracking-wide text-stone-400 border-b border-stone-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] backdrop-blur-md">
           <tr>
             <th className="px-6 py-4 font-semibold">Member</th>
             <th className="px-6 py-4 font-semibold">Month</th>

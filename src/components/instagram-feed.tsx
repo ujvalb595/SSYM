@@ -27,6 +27,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface InstagramMediaChild {
   id: string;
@@ -977,6 +979,10 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
   const [editMediaType, setEditMediaType] = useState<"IMAGE" | "VIDEO" | "TEXT">("TEXT");
   const [editPreviewFile, setEditPreviewFile] = useState<string | null>(null);
 
+  // Modal State for "Delete Post" confirmation
+  const [postToDelete, setPostToDelete] = useState<InstagramPost | null>(null);
+  const [deletingPost, setDeletingPost] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -1220,7 +1226,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to update pin status.");
+        toast.error(data.error || "Failed to update pin status.");
         return;
       }
 
@@ -1238,10 +1244,11 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         });
       });
 
+      toast.success(targetIsPinned ? "Post pinned to top!" : "Post unpinned successfully.");
       setPinningPost(null);
     } catch (err) {
       console.error("Failed to pin post:", err);
-      alert("Error updating pin status.");
+      toast.error("Error updating pin status.");
     }
   };
 
@@ -1250,7 +1257,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
     const minutesPassed = (Date.now() - postTime) / (1000 * 60);
 
     if (minutesPassed > 15) {
-      alert(`Edit window expired! Posts can only be edited within 15 minutes of creation.`);
+      toast.error("Edit window expired! Posts can only be edited within 15 minutes of creation.");
       return;
     }
 
@@ -1301,7 +1308,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to update post.");
+        toast.error(data.error || "Failed to update post.");
         return;
       }
 
@@ -1309,15 +1316,19 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         prev.map((p) => (p.id === editingPost.id ? { ...p, ...data.data } : p))
       );
 
+      toast.success("Post updated successfully!");
       setEditingPost(null);
     } catch (err) {
       console.error("Failed to edit post:", err);
-      alert("Error editing post.");
+      toast.error("Error editing post.");
     }
   };
 
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm("Are you sure you want to delete this post?")) return;
+  const handleConfirmDeletePost = async () => {
+    if (!postToDelete) return;
+
+    setDeletingPost(true);
+    const postId = postToDelete.id;
 
     try {
       const res = await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, {
@@ -1326,7 +1337,8 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to delete post.");
+        toast.error(data.error || "Failed to delete post.");
+        setDeletingPost(false);
         return;
       }
 
@@ -1334,9 +1346,13 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
       if (selectedPost?.id === postId) {
         setSelectedPost(null);
       }
+      toast.success("Post deleted successfully!");
+      setPostToDelete(null);
+      setDeletingPost(false);
     } catch (err) {
       console.error("Failed to delete post:", err);
-      alert("Error deleting post.");
+      toast.error("Error deleting post.");
+      setDeletingPost(false);
     }
   };
 
@@ -1453,9 +1469,10 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
       setIsCreateScheduled(false);
       setCreateScheduledAt("");
       setIsCreateModalOpen(false);
+      toast.success("Post published successfully! 🎉");
     } catch (err) {
       console.error("Failed to create post:", err);
-      alert("Failed to save post to database. Please try again.");
+      toast.error("Failed to save post to database. Please try again.");
     }
   };
 
@@ -1604,7 +1621,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
       {/* Scrollable Posts Feed Area - ONLY this scrolls */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto pr-1 sm:pr-2 pb-6 space-y-6 scrollbar-thin scrollbar-thumb-violet-200/80 hover:scrollbar-thumb-violet-300 scrollbar-track-transparent select-text"
+        className="flex-1 overflow-y-auto pr-1 sm:pr-2 pb-6 space-y-6 no-scrollbar select-text"
       >
         {/* Loading Skeleton */}
       {loading && (
@@ -1748,7 +1765,7 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
                               <button
                                 onClick={() => {
                                   setOpenMenuPostId(null);
-                                  handleDeletePost(post.id);
+                                  setPostToDelete(post);
                                 }}
                                 className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                               >
@@ -2481,6 +2498,19 @@ export function InstagramFeed({ userRole }: { userRole?: string }) {
         </div>,
         document.body
       )}
+
+      {/* CONFIRM DELETE POST MODAL */}
+      <ConfirmDialog
+        open={!!postToDelete}
+        onClose={() => setPostToDelete(null)}
+        onConfirm={handleConfirmDeletePost}
+        title="Delete Post"
+        description="Are you sure you want to delete this post? This action cannot be undone and will permanently remove this post from the Mandal feed."
+        confirmText="Delete Post"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deletingPost}
+      />
     </div>
   );
 }

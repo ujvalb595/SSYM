@@ -11,6 +11,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 
@@ -41,13 +42,17 @@ export function AddDonationDialog() {
     const amount = Number(form.get("amount") || 0);
 
     if (!donorName) {
-      setError("Please enter donor name.");
+      const msg = "Please enter donor name.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
       return;
     }
 
     if (!amount || amount <= 0) {
-      setError("Please enter a valid positive donation amount.");
+      const msg = "Please enter a valid positive donation amount.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
       return;
     }
@@ -67,12 +72,15 @@ export function AddDonationDialog() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Failed to add donation.");
+        const msg = data.message || "Failed to add donation.";
+        setError(msg);
+        toast.error(msg);
         setSubmitting(false);
         return;
       }
 
       setSaved(true);
+      toast.success("Donation recorded successfully!");
       setTimeout(() => {
         formElement.reset();
         setOpen(false);
@@ -81,7 +89,9 @@ export function AddDonationDialog() {
         router.refresh();
       }, 600);
     } catch {
-      setError("An unexpected network error occurred.");
+      const msg = "An unexpected network error occurred.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   }

@@ -16,6 +16,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const bloodGroupOptions = [
   { label: "A+", value: "A_POSITIVE" },
@@ -65,12 +66,15 @@ export function AddMemberDialog() {
       const result = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setError(result.message ?? "Unable to add member.");
+        const msg = result.message ?? "Unable to add member.";
+        setError(msg);
+        toast.error(msg);
         setSubmitting(false);
         return;
       }
 
       setSaved(true);
+      toast.success("Member added successfully! 🎉");
       setTimeout(() => {
         formElement.reset();
         setOpen(false);
@@ -79,7 +83,9 @@ export function AddMemberDialog() {
         router.refresh();
       }, 600);
     } catch {
-      setError("An unexpected error occurred. Please try again.");
+      const msg = "An unexpected error occurred. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   }
