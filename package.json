@@ -17,6 +17,8 @@
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "googleapis": "^176.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.28.0",
     "next": "^15.5.22",
     "next-auth": "^5.0.0-beta.32",
@@ -25,6 +27,7 @@
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

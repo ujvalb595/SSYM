@@ -6,6 +6,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
 import { Crown, ExternalLink, MoreHorizontal, Shield, UserMinus } from "lucide-react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
+interface RoleDialogConfig {
+  newRole: Role;
+  title: string;
+  description: string;
+  confirmText: string;
+  variant: "danger" | "warning" | "info";
+  icon?: React.ReactNode;
+}
 
 export function AdminRowActions({
   admin,
@@ -25,6 +36,7 @@ export function AdminRowActions({
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number; openUpwards: boolean } | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState<RoleDialogConfig | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -50,18 +62,46 @@ export function AdminRowActions({
     setOpen((prev) => !prev);
   };
 
-  async function handleRoleChange(newRole: Role) {
+  const handleInitiateRoleChange = (newRole: Role) => {
     if (isSelf) {
-      alert("You cannot change your own role from this panel.");
+      toast.error("You cannot change your own role from this panel.");
       return;
     }
 
-    const confirmMsg =
-      newRole === Role.USER
-        ? `Are you sure you want to demote ${admin.name} to a regular Member?`
-        : `Promote ${admin.name} to Super Admin?`;
+    setOpen(false);
 
-    if (!confirm(confirmMsg)) return;
+    if (newRole === Role.USER) {
+      setConfirmConfig({
+        newRole,
+        title: "Demote to Regular Member",
+        description: `Are you sure you want to demote ${admin.name} to a regular Member? They will lose all administrative privileges.`,
+        confirmText: "Demote Member",
+        variant: "danger",
+        icon: <UserMinus size={22} className="text-rose-600" />,
+      });
+    } else if (newRole === Role.SUPER_ADMIN) {
+      setConfirmConfig({
+        newRole,
+        title: "Promote to Super Admin",
+        description: `Are you sure you want to promote ${admin.name} to Super Admin? This user will have full access to manage all aspects of the Mandal.`,
+        confirmText: "Promote to Super Admin",
+        variant: "warning",
+        icon: <Crown size={22} className="text-amber-600" />,
+      });
+    } else {
+      setConfirmConfig({
+        newRole,
+        title: "Set as Mandal Admin",
+        description: `Change ${admin.name}'s role to Mandal Admin?`,
+        confirmText: "Update Role",
+        variant: "info",
+        icon: <Shield size={22} className="text-[#7257f4]" />,
+      });
+    }
+  };
+
+  async function handleConfirmRoleChange() {
+    if (!confirmConfig) return;
 
     setLoading(true);
 
@@ -72,22 +112,27 @@ export function AdminRowActions({
         body: JSON.stringify({
           name: admin.name,
           mobile: admin.mobile,
-          role: newRole,
+          role: confirmConfig.newRole,
         }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        alert(err.message || "Failed to update admin role.");
+        toast.error(err.message || "Failed to update admin role.");
         setLoading(false);
         return;
       }
 
-      setOpen(false);
+      toast.success(
+        confirmConfig.newRole === Role.USER
+          ? `${admin.name} demoted to Member.`
+          : `${admin.name} promoted successfully!`
+      );
+      setConfirmConfig(null);
       setLoading(false);
       router.refresh();
     } catch {
-      alert("Network error.");
+      toast.error("Network error. Please try again.");
       setLoading(false);
     }
   }
@@ -133,18 +178,20 @@ export function AdminRowActions({
                     <div className="my-1 border-t border-stone-100" />
                     {admin.role !== Role.SUPER_ADMIN ? (
                       <button
-                        onClick={() => handleRoleChange(Role.SUPER_ADMIN)}
+                        type="button"
+                        onClick={() => handleInitiateRoleChange(Role.SUPER_ADMIN)}
                         disabled={loading}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 text-left"
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 text-left cursor-pointer disabled:opacity-50"
                       >
                         <Crown size={15} />
                         Promote to Super Admin
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleRoleChange(Role.ADMIN)}
+                        type="button"
+                        onClick={() => handleInitiateRoleChange(Role.ADMIN)}
                         disabled={loading}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 text-left"
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 text-left cursor-pointer disabled:opacity-50"
                       >
                         <Shield size={15} />
                         Set as Mandal Admin
@@ -152,9 +199,10 @@ export function AdminRowActions({
                     )}
 
                     <button
-                      onClick={() => handleRoleChange(Role.USER)}
+                      type="button"
+                      onClick={() => handleInitiateRoleChange(Role.USER)}
                       disabled={loading}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left cursor-pointer disabled:opacity-50"
                     >
                       <UserMinus size={15} />
                       Demote to Member
@@ -166,6 +214,21 @@ export function AdminRowActions({
             document.body
           )
         : null}
+
+      {confirmConfig && (
+        <ConfirmDialog
+          open={!!confirmConfig}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={handleConfirmRoleChange}
+          title={confirmConfig.title}
+          description={confirmConfig.description}
+          confirmText={confirmConfig.confirmText}
+          cancelText="Cancel"
+          variant={confirmConfig.variant}
+          icon={confirmConfig.icon}
+          loading={loading}
+        />
+      )}
     </>
   );
 }

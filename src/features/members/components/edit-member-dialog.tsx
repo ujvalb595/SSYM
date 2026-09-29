@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Eye, EyeOff, LockKeyhole, Pencil, Phone, UserRound, X } from "lucide-react";
+import { toast } from "sonner";
 
 export interface MemberData {
   id: string;
@@ -60,16 +61,21 @@ export function EditMemberDialog({ member }: { member: MemberData }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Failed to update member.");
+        const msg = data.message || "Failed to update member.";
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
 
+      toast.success("Member profile updated successfully!");
       setOpen(false);
       setLoading(false);
       router.refresh();
     } catch {
-      setError("An unexpected error occurred. Please try again.");
+      const msg = "An unexpected error occurred. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
     }
   }

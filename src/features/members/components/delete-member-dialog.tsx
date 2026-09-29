@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function DeleteMemberDialog({
@@ -24,17 +25,20 @@ export function DeleteMemberDialog({
         method: "DELETE",
       });
 
-      await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
+        toast.error(data.message || "Failed to delete member.");
         setLoading(false);
         return;
       }
 
+      toast.success(`Member "${memberName}" deleted successfully.`);
       setOpen(false);
       setLoading(false);
       router.refresh();
     } catch {
+      toast.error("An unexpected error occurred while deleting member.");
       setLoading(false);
     }
   }

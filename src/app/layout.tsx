@@ -30,7 +30,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        <Toaster position="top-right" richColors />
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          toastOptions={{
+            style: {
+              zIndex: 99999,
+              borderRadius: "1rem",
+              fontSize: "0.875rem",
+              fontFamily: "var(--font-sans)",
+            },
+          }}
+        />
         <Providers>
           {children}
         </Providers>

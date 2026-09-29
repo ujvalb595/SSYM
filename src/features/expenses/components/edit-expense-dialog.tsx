@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function EditExpenseDialog({
@@ -71,12 +72,16 @@ export function EditExpenseDialog({
 
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      setError("Please enter a valid amount greater than 0.");
+      const msg = "Please enter a valid amount greater than 0.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     if (!title.trim()) {
-      setError("Please enter an expense title.");
+      const msg = "Please enter an expense title.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -97,16 +102,21 @@ export function EditExpenseDialog({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Failed to update expense.");
+        const msg = data.message || "Failed to update expense.";
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
 
+      toast.success("Expense updated successfully!");
       setOpen(false);
       setLoading(false);
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      const msg = "Something went wrong. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
     }
   }
@@ -120,16 +130,21 @@ export function EditExpenseDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Failed to delete expense.");
+        const msg = data.message || "Failed to delete expense.";
+        setError(msg);
+        toast.error(msg);
         setDeleting(false);
         return;
       }
+      toast.success("Expense deleted successfully!");
       setDeleteConfirmOpen(false);
       setOpen(false);
       setDeleting(false);
       router.refresh();
     } catch {
-      setError("Failed to delete expense.");
+      const msg = "Failed to delete expense.";
+      setError(msg);
+      toast.error(msg);
       setDeleting(false);
     }
   }

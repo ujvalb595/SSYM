@@ -10,6 +10,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 
@@ -39,13 +40,17 @@ export function AddExpensesDialog() {
     const amount = Number(form.get("amount") || 0);
 
     if (!title) {
-      setError("Please enter expense name.");
+      const msg = "Please enter expense name.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
       return;
     }
 
     if (!amount || amount <= 0) {
-      setError("Please enter a valid positive amount.");
+      const msg = "Please enter a valid positive amount.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
       return;
     }
@@ -64,12 +69,15 @@ export function AddExpensesDialog() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Failed to create expense.");
+        const msg = data.message || "Failed to create expense.";
+        setError(msg);
+        toast.error(msg);
         setSubmitting(false);
         return;
       }
 
       setSaved(true);
+      toast.success("Expense recorded successfully!");
       setTimeout(() => {
         formElement.reset();
         setOpen(false);
@@ -78,7 +86,9 @@ export function AddExpensesDialog() {
         router.refresh();
       }, 600);
     } catch {
-      setError("An unexpected network error occurred.");
+      const msg = "An unexpected network error occurred.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   }

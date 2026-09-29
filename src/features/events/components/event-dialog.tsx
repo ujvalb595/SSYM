@@ -8,6 +8,7 @@ import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/a
 import { CustomSelect } from "@/components/ui/custom-select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const categoryOptions = [
   { label: "General Activity", value: "general" },
@@ -28,7 +29,7 @@ interface EventDialogProps {
 export function EventDialog({ open, setOpen, event, isAdmin, onSuccess }: EventDialogProps) {
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const isBirthday = Boolean(event?.isBirthday || event?.title?.includes("🎂"));
@@ -49,7 +50,7 @@ export function EventDialog({ open, setOpen, event, isAdmin, onSuccess }: EventD
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError("");
+    setError(null);
     setSubmitting(true);
 
     const form = new FormData(e.currentTarget);
@@ -61,7 +62,9 @@ export function EventDialog({ open, setOpen, event, isAdmin, onSuccess }: EventD
     const endStr = form.get("end") as string;
 
     if (!title || !startStr || !endStr) {
-      setError("Please fill all required fields");
+      const msg = "Please fill all required fields";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
       return;
     }
@@ -78,14 +81,18 @@ export function EventDialog({ open, setOpen, event, isAdmin, onSuccess }: EventD
 
       if (event?.id) {
         await updateEventAction(event.id, eventData);
+        toast.success("Event updated successfully!");
       } else {
         await createEventAction(eventData);
+        toast.success("Event scheduled successfully!");
       }
 
       onSuccess();
       setOpen(false);
     } catch (err) {
-      setError("Failed to save event to Google Calendar.");
+      const msg = "Failed to save event to Google Calendar.";
+      setError(msg);
+      toast.error(msg);
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -98,11 +105,14 @@ export function EventDialog({ open, setOpen, event, isAdmin, onSuccess }: EventD
     setSubmitting(true);
     try {
       await deleteEventAction(event.id);
+      toast.success("Event deleted successfully!");
       setDeleteConfirmOpen(false);
       onSuccess();
       setOpen(false);
     } catch {
-      setError("Failed to delete event from Google Calendar.");
+      const msg = "Failed to delete event from Google Calendar.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

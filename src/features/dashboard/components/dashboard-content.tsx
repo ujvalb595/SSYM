@@ -1,14 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   ArrowUpRight,
-  CalendarDays,
   CheckCircle2,
   IndianRupee,
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import type { ChartItem } from "@/features/dashboard/components/collection-chart";
+import {
+  DashboardHeaderActions,
+  FilterState,
+} from "@/features/dashboard/components/dashboard-header-actions";
 
 const CollectionChart = dynamic(
   () => import("@/features/dashboard/components/collection-chart").then((m) => m.CollectionChart),
@@ -43,13 +47,61 @@ export interface DashboardData {
 }
 
 export function DashboardContent({ data }: { data?: DashboardData }) {
-  const totalPaymentsReceived = data?.totalPaymentsReceived ?? 0;
-  const totalDonationsReceived = data?.totalDonationsReceived ?? 0;
+  const [metricsData, setMetricsData] = useState({
+    totalPaymentsReceived: data?.totalPaymentsReceived ?? 0,
+    totalDonationsReceived: data?.totalDonationsReceived ?? 0,
+    totalExpenses: data?.totalExpenses ?? 0,
+    monthlyCollectionSum: data?.monthlyCollectionSum ?? 0,
+  });
+  const [activeFilterLabel, setActiveFilterLabel] = useState<string>("This Month");
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
+  useEffect(() => {
+    if (data) {
+      setMetricsData({
+        totalPaymentsReceived: data.totalPaymentsReceived ?? 0,
+        totalDonationsReceived: data.totalDonationsReceived ?? 0,
+        totalExpenses: data.totalExpenses ?? 0,
+        monthlyCollectionSum: data.monthlyCollectionSum ?? 0,
+      });
+    }
+  }, [data]);
+
+  const handleFilterChange = async (newFilter: FilterState) => {
+    setActiveFilterLabel(newFilter.label);
+    setLoadingMetrics(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("period", newFilter.period);
+      if (newFilter.month) params.set("month", String(newFilter.month));
+      if (newFilter.year) params.set("year", String(newFilter.year));
+      if (newFilter.startDate) params.set("startDate", newFilter.startDate);
+      if (newFilter.endDate) params.set("endDate", newFilter.endDate);
+
+      const res = await fetch(`/api/reports/export?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.summary) {
+          setMetricsData({
+            totalPaymentsReceived: json.summary.totalPaymentsAmount,
+            totalDonationsReceived: json.summary.totalDonationsAmount,
+            totalExpenses: json.summary.totalExpensesAmount,
+            monthlyCollectionSum: json.summary.totalPaymentsAmount,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update dashboard metrics for filter:", err);
+    } finally {
+      setLoadingMetrics(false);
+    }
+  };
+
+  const totalPaymentsReceived = metricsData.totalPaymentsReceived;
+  const totalDonationsReceived = metricsData.totalDonationsReceived;
   const totalIncome = totalPaymentsReceived + totalDonationsReceived;
-
-  const monthlyCollection = data?.monthlyCollectionSum ?? 0;
-  const totalExpenses = data?.totalExpenses ?? 0;
+  const monthlyCollection = metricsData.monthlyCollectionSum;
+  const totalExpenses = metricsData.totalExpenses;
   const targetCollection = data?.targetCollection || 50000;
 
   const collectionPercent =
@@ -63,25 +115,24 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
     [
       "Total Income",
       `₹ ${totalIncome.toLocaleString("en-IN")}`,
-      `Payments + Donations`,
+      `Payments + Donations (${activeFilterLabel})`,
       IndianRupee,
       "bg-violet-100 text-violet-600",
     ],
     [
       "Total Expenses",
       `₹ ${totalExpenses.toLocaleString("en-IN")}`,
-      "Recorded activity",
+      `Recorded activity (${activeFilterLabel})`,
       CheckCircle2,
       "bg-emerald-100 text-emerald-700",
     ],
     [
       "Total Donations",
       `₹ ${totalDonationsReceived.toLocaleString("en-IN")}`,
-      "All donations received",
+      `All donations (${activeFilterLabel})`,
       IndianRupee,
       "bg-fuchsia-100 text-fuchsia-600",
     ],
-    
   ] as const;
 
   const currentMonthYearName = new Date().toLocaleDateString("en-US", {
@@ -91,37 +142,50 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
 
   return (
     <section className="mx-auto max-w-7xl p-5 md:p-9">
-      {/* Top Header */}
+      {/* Top Header with Filter & Download Actions */}
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">Dashboard</h2>
           <p className="mt-1 text-sm text-stone-500">Here&apos;s real-time mandal management progress today.</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7257f4] to-[#a858ef] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-200 hover:brightness-105">
-          <CalendarDays size={17} /> {currentMonthYearName}
-        </button>
+        <DashboardHeaderActions onFilterChange={handleFilterChange} />
       </div>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {metrics.map(([label, value, trend, Icon, tone]) => (
-          <article
-            key={label}
-            className="rounded-2xl border border-white bg-white/90 p-5 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]"
-          >
-            <div className="flex items-start justify-between">
-              <span className={`rounded-2xl p-3 ${tone}`}>
-                <Icon size={21} />
-              </span>
-              <span className="flex items-center text-xs font-semibold text-emerald-600">
-                <ArrowUpRight size={15} />
-              </span>
-            </div>
-            <p className="mt-5 text-sm font-medium text-stone-500">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-[#24203a]">{value}</p>
-            <p className="mt-2 text-xs text-stone-400">{trend}</p>
-          </article>
-        ))}
+        {loadingMetrics
+          ? Array.from({ length: 3 }).map((_, idx) => (
+              <article
+                key={`metric-skeleton-${idx}`}
+                className="animate-pulse rounded-2xl border border-white bg-white/90 p-5 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="size-11 rounded-2xl bg-violet-100/70" />
+                  <div className="h-4 w-10 rounded-full bg-stone-100" />
+                </div>
+                <div className="mt-5 h-3.5 w-24 rounded-lg bg-stone-200/80" />
+                <div className="mt-2 h-7 w-36 rounded-xl bg-violet-200/80" />
+                <div className="mt-2.5 h-3 w-44 rounded-lg bg-stone-100" />
+              </article>
+            ))
+          : metrics.map(([label, value, trend, Icon, tone]) => (
+              <article
+                key={label}
+                className="rounded-2xl border border-white bg-white/90 p-5 shadow-[0_12px_30px_rgb(77_55_135_/_0.07)] transition-all"
+              >
+                <div className="flex items-start justify-between">
+                  <span className={`rounded-2xl p-3 ${tone}`}>
+                    <Icon size={21} />
+                  </span>
+                  <span className="flex items-center text-xs font-semibold text-emerald-600">
+                    <ArrowUpRight size={15} />
+                  </span>
+                </div>
+                <p className="mt-5 text-sm font-medium text-stone-500">{label}</p>
+                <p className="mt-1 text-2xl font-bold text-[#24203a]">{value}</p>
+                <p className="mt-2 text-xs text-stone-400">{trend}</p>
+              </article>
+            ))}
       </div>
 
       {/* Chart & Collection Progress Section */}
@@ -138,25 +202,37 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
 
         <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="font-bold text-[#24203a]">Collection Progress</h3>
-          <p className="text-sm text-stone-500">{currentMonthYearName} Target</p>
-          <div className="mt-8 flex justify-center">
-            <div className="flex size-40 flex-col items-center justify-center rounded-full border-[14px] border-[#7257f4] border-l-violet-100">
-              <strong className="text-3xl font-extrabold text-[#24203a]">{collectionPercent}%</strong>
-              <span className="text-xs text-stone-500">
-                ₹{monthlyCollection.toLocaleString("en-IN")} raised
-              </span>
+          <p className="text-sm text-stone-500">{activeFilterLabel} Target</p>
+          {loadingMetrics ? (
+            <div className="mt-8 flex flex-col items-center justify-center space-y-6 animate-pulse">
+              <div className="size-40 rounded-full bg-violet-100/60" />
+              <div className="w-full space-y-3 pt-2">
+                <div className="h-4 w-full rounded-lg bg-stone-100" />
+                <div className="h-4 w-full rounded-lg bg-stone-100" />
+              </div>
             </div>
-          </div>
-          <div className="mt-7 space-y-3 text-sm">
-            <div className="flex justify-between border-b border-stone-100 pb-2">
-              <span className="text-stone-500">Target</span>
-              <strong>₹{targetCollection.toLocaleString("en-IN")}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-500">Remaining</span>
-              <strong className="text-[#7257f4]">₹{remainingTarget.toLocaleString("en-IN")}</strong>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="mt-8 flex justify-center">
+                <div className="flex size-40 flex-col items-center justify-center rounded-full border-[14px] border-[#7257f4] border-l-violet-100">
+                  <strong className="text-3xl font-extrabold text-[#24203a]">{collectionPercent}%</strong>
+                  <span className="text-xs text-stone-500">
+                    ₹{monthlyCollection.toLocaleString("en-IN")} raised
+                  </span>
+                </div>
+              </div>
+              <div className="mt-7 space-y-3 text-sm">
+                <div className="flex justify-between border-b border-stone-100 pb-2">
+                  <span className="text-stone-500">Target</span>
+                  <strong>₹{targetCollection.toLocaleString("en-IN")}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Remaining</span>
+                  <strong className="text-[#7257f4]">₹{remainingTarget.toLocaleString("en-IN")}</strong>
+                </div>
+              </div>
+            </>
+          )}
         </article>
       </div>
 
@@ -175,14 +251,14 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
           </div>
 
           {data?.recentPayments && data.recentPayments.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[360px] overflow-y-auto no-scrollbar relative">
               <table className="w-full text-left text-sm">
-                <thead className="border-y border-stone-100 text-xs uppercase tracking-wide text-stone-400">
+                <thead className="sticky top-0 z-10 bg-white border-y border-stone-100 text-xs uppercase tracking-wide text-stone-400 backdrop-blur-sm">
                   <tr>
-                    <th className="py-3 font-medium">Member</th>
-                    <th className="py-3 font-medium">Month</th>
-                    <th className="py-3 font-medium">Amount</th>
-                    <th className="py-3 font-medium text-right">Status</th>
+                    <th className="py-3 font-medium bg-white">Member</th>
+                    <th className="py-3 font-medium bg-white">Month</th>
+                    <th className="py-3 font-medium bg-white">Amount</th>
+                    <th className="py-3 font-medium text-right bg-white">Status</th>
                   </tr>
                 </thead>
                 <tbody>

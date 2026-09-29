@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function EditDonationDialog({
@@ -72,12 +73,16 @@ export function EditDonationDialog({
 
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      setError("Please enter a valid amount greater than 0.");
+      const msg = "Please enter a valid amount greater than 0.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     if (!donorName.trim()) {
-      setError("Please enter donor name.");
+      const msg = "Please enter donor name.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -99,16 +104,21 @@ export function EditDonationDialog({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Failed to update donation.");
+        const msg = data.message || "Failed to update donation.";
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
 
+      toast.success("Donation updated successfully!");
       setOpen(false);
       setLoading(false);
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      const msg = "Something went wrong. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
     }
   }
@@ -122,16 +132,21 @@ export function EditDonationDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Failed to delete donation.");
+        const msg = data.message || "Failed to delete donation.";
+        setError(msg);
+        toast.error(msg);
         setDeleting(false);
         return;
       }
+      toast.success("Donation deleted successfully!");
       setDeleteConfirmOpen(false);
       setOpen(false);
       setDeleting(false);
       router.refresh();
     } catch {
-      setError("Failed to delete donation.");
+      const msg = "Failed to delete donation.";
+      setError(msg);
+      toast.error(msg);
       setDeleting(false);
     }
   }
