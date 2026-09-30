@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import {
   DashboardContent,
@@ -19,6 +20,9 @@ export default async function DashboardPage() {
   if (!session?.user || session.user.isActive === false) {
     redirect("/login");
   }
+
+  const canManageDashboardReports =
+    session.user.role === Role.ADMIN || session.user.role === Role.SUPER_ADMIN;
 
   let dashboardData: DashboardData = {
     totalMembersCount: 0,
@@ -249,7 +253,10 @@ export default async function DashboardPage() {
 
   return (
     <DashboardShell title={`Good morning, ${userName}`}>
-      <DashboardContent data={dashboardData} />
+      <DashboardContent
+        data={dashboardData}
+        canManageDashboardReports={canManageDashboardReports}
+      />
     </DashboardShell>
   );
 }
