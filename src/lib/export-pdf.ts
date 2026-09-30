@@ -2,6 +2,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ReportDataPayload } from "@/lib/export-excel";
 
+type JsPDFWithAutoTable = jsPDF & {
+  lastAutoTable: {
+    finalY: number;
+  };
+};
+
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -145,7 +151,7 @@ export function exportToPDF(reportData: ReportDataPayload) {
     },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 22;
+  currentY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 22;
 
   // 4. Payments Section Table
   doc.setTextColor(36, 32, 58);
@@ -196,7 +202,7 @@ export function exportToPDF(reportData: ReportDataPayload) {
     },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 22;
+  currentY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 22;
 
   // 5. Donations Section Table
   if (currentY > pageHeight - 120) {
@@ -250,7 +256,7 @@ export function exportToPDF(reportData: ReportDataPayload) {
     },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 22;
+  currentY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 22;
 
   // 6. Expenses Section Table
   if (currentY > pageHeight - 120) {
