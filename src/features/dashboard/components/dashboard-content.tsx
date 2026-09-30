@@ -44,6 +44,7 @@ export interface DashboardData {
     age: number;
   }[];
   chartData: ChartItem[];
+  financialYearStart: number;
 }
 
 export function DashboardContent({ data }: { data?: DashboardData }) {
@@ -202,36 +203,44 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
 
         <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="font-bold text-[#24203a]">Collection Progress</h3>
-          <p className="text-sm text-stone-500">{activeFilterLabel} Target</p>
+          <p className="text-sm text-stone-500">Current Financial Year • Monthly Target</p>
           {loadingMetrics ? (
-            <div className="mt-8 flex flex-col items-center justify-center space-y-6 animate-pulse">
-              <div className="size-40 rounded-full bg-violet-100/60" />
-              <div className="w-full space-y-3 pt-2">
-                <div className="h-4 w-full rounded-lg bg-stone-100" />
-                <div className="h-4 w-full rounded-lg bg-stone-100" />
-              </div>
+            <div className="mt-5 space-y-3 animate-pulse">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-10 w-full rounded-xl bg-stone-100" />
+              ))}
             </div>
           ) : (
-            <>
-              <div className="mt-8 flex justify-center">
-                <div className="flex size-40 flex-col items-center justify-center rounded-full border-[14px] border-[#7257f4] border-l-violet-100">
-                  <strong className="text-3xl font-extrabold text-[#24203a]">{collectionPercent}%</strong>
-                  <span className="text-xs text-stone-500">
-                    ₹{monthlyCollection.toLocaleString("en-IN")} raised
-                  </span>
-                </div>
-              </div>
-              <div className="mt-7 space-y-3 text-sm">
-                <div className="flex justify-between border-b border-stone-100 pb-2">
-                  <span className="text-stone-500">Target</span>
-                  <strong>₹{targetCollection.toLocaleString("en-IN")}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Remaining</span>
-                  <strong className="text-[#7257f4]">₹{remainingTarget.toLocaleString("en-IN")}</strong>
-                </div>
-              </div>
-            </>
+            <div className="mt-5 max-h-[420px] space-y-2.5 overflow-y-auto pr-1 no-scrollbar">
+              {data?.chartData?.map((item) => {
+                const target = data.targetCollection || 0;
+                const percent = target > 0 ? Math.min(Math.round((item.collected / target) * 100), 100) : 0;
+                const remaining = Math.max(target - item.collected, 0);
+                const monthYear = ["OCT", "NOV", "DEC"].includes(item.month)
+                  ? data.financialYearStart
+                  : data.financialYearStart + 1;
+                return (
+                  <div key={item.month} className="rounded-xl border border-stone-100 bg-stone-50/40 p-2.5">
+                    <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 font-extrabold text-[#24203a]">{item.month}</span>
+                        <span className="text-stone-400">{monthYear}</span>
+                      </div>
+                      <span className="font-bold text-[#7257f4]">{percent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-violet-100">
+                      <div className="h-full rounded-full bg-[#7257f4]" style={{ width: `${percent}%` }} />
+                    </div>
+                    <div className="mt-1.5 flex justify-between gap-2 text-[11px]">
+                      <span className="font-semibold text-stone-600">₹{item.collected.toLocaleString("en-IN")} / ₹{target.toLocaleString("en-IN")}</span>
+                      <span className="text-right text-stone-400">
+                        {remaining > 0 ? `₹${remaining.toLocaleString("en-IN")} left` : "Target met"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </article>
       </div>
