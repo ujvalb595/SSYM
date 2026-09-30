@@ -30,6 +30,10 @@ export default async function DashboardPage() {
     recentPayments: [],
     upcomingBirthdays: [],
     chartData: [],
+    financialYearStart:
+      new Date().getMonth() + 1 >= 10
+        ? new Date().getFullYear()
+        : new Date().getFullYear() - 1,
   };
 
   if (process.env.PRISMA_DATABASE_URL) {
@@ -234,6 +238,7 @@ export default async function DashboardPage() {
         recentPayments,
         upcomingBirthdays,
         chartData,
+        financialYearStart,
       };
     } catch (e) {
       console.error("Dashboard DB Query Error:", e);
