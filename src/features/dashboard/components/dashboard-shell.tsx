@@ -71,7 +71,7 @@ export function DashboardShell({
             <AccountMenu />
           </div>
         </header>
-        {children ?? <DashboardContent />}
+        {children ?? null}
       </main>
     </div>
   );
