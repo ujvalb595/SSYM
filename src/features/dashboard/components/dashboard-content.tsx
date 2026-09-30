@@ -47,7 +47,13 @@ export interface DashboardData {
   financialYearStart: number;
 }
 
-export function DashboardContent({ data }: { data?: DashboardData }) {
+export function DashboardContent({
+  data,
+  canManageDashboardReports,
+}: {
+  data?: DashboardData;
+  canManageDashboardReports: boolean;
+}) {
   const [metricsData, setMetricsData] = useState({
     totalPaymentsReceived: data?.totalPaymentsReceived ?? 0,
     totalDonationsReceived: data?.totalDonationsReceived ?? 0,
@@ -149,7 +155,9 @@ export function DashboardContent({ data }: { data?: DashboardData }) {
           <h2 className="text-2xl font-bold tracking-tight text-[#24203a]">Dashboard</h2>
           <p className="mt-1 text-sm text-stone-500">Here&apos;s real-time mandal management progress today.</p>
         </div>
-        <DashboardHeaderActions onFilterChange={handleFilterChange} />
+        {canManageDashboardReports && (
+          <DashboardHeaderActions onFilterChange={handleFilterChange} />
+        )}
       </div>
 
       {/* Metrics Cards */}
