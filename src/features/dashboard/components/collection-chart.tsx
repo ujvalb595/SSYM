@@ -17,26 +17,10 @@ export interface ChartItem {
   pending: number;
 }
 
-interface FinancialYearOption {
-  startYear: number;
-  label: string;
-}
-
 const getCurrentFinancialYearStart = () => {
   const now = new Date();
   return now.getMonth() + 1 >= 10 ? now.getFullYear() : now.getFullYear() - 1;
 };
-
-const buildFinancialYearOptions = (
-  currentStartYear: number
-): FinancialYearOption[] =>
-  Array.from({ length: 5 }, (_, index) => {
-    const startYear = currentStartYear - index;
-    return {
-      startYear,
-      label: `FY ${startYear}-${String(startYear + 1).slice(-2)}`,
-    };
-  });
 
 const EMPTY_CHART_DATA: ChartItem[] = [
   { month: "OCT", collected: 0, pending: 0 },
@@ -63,9 +47,14 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
   );
   const [loading, setLoading] = useState(false);
 
-  const financialYearOptions = buildFinancialYearOptions(
-    getCurrentFinancialYearStart()
-  );
+  const currentFinancialYearStart = getCurrentFinancialYearStart();
+  const financialYearOptions = Array.from({ length: 5 }, (_, index) => {
+    const startYear = currentFinancialYearStart - index;
+    return {
+      startYear,
+      label: `FY ${startYear}-${String(startYear + 1).slice(-2)}`,
+    };
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -77,9 +66,7 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
     }
   }, [data, financialYearStart]);
 
-  const handleFinancialYearChange = async (
-    nextFinancialYearStart: number
-  ) => {
+  const handleFinancialYearChange = async (nextFinancialYearStart: number) => {
     setFinancialYearStart(nextFinancialYearStart);
 
     if (nextFinancialYearStart === getCurrentFinancialYearStart()) {
@@ -153,37 +140,23 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
-            margin={{
-              top: 10,
-              right: 8,
-              left: -15,
-              bottom: 0,
-            }}
+            margin={{ top: 10, right: 8, left: -15, bottom: 0 }}
           >
             <CartesianGrid vertical={false} stroke="#eee9e1" />
-
             <XAxis
               dataKey="month"
               axisLine={false}
               tickLine={false}
-              tick={{
-                fill: "#78716c",
-                fontSize: 12,
-              }}
+              tick={{ fill: "#78716c", fontSize: 12 }}
             />
-
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{
-                fill: "#a8a29e",
-                fontSize: 11,
-              }}
+              tick={{ fill: "#a8a29e", fontSize: 11 }}
               tickFormatter={(value) =>
                 `₹${Number(value).toLocaleString("en-IN")}`
               }
             />
-
             <Tooltip
               cursor={{ fill: "#f5f2ff" }}
               formatter={(value, name) => [
@@ -191,7 +164,6 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
                 name === "collected" ? "Collected" : "Pending",
               ]}
             />
-
             <Bar
               dataKey="collected"
               stackId="collection"
@@ -199,7 +171,6 @@ export function CollectionChart({ data }: { data?: ChartItem[] }) {
               radius={[0, 0, 0, 0]}
               maxBarSize={44}
             />
-
             <Bar
               dataKey="pending"
               stackId="collection"
