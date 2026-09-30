@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { Bell, Menu, Search } from "lucide-react";
 import { Sidebar } from "@/features/dashboard/components/sidebar";
-import { DashboardContent } from "@/features/dashboard/components/dashboard-content";
 import { AccountMenu } from "@/features/dashboard/components/account-menu";
 
 export function DashboardShell({
