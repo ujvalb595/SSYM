@@ -6,11 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { syncMemberBirthdayToGoogleCalendar } from "@/lib/google-calendar";
 
 const memberSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  mobile: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number."),
-  birthDate: z.coerce.date(),
-  bloodGroup: z.nativeEnum(BloodGroup).optional().nullable(),
-  password: z.string().min(8).max(100),
+  name: z.string({ error: "Full name is required." }).trim().min(2, "Full name must be at least 2 characters.").max(100, "Full name must be 100 characters or less."),
+  mobile: z.string({ error: "Mobile number is required." }).trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number."),
+  birthDate: z.coerce.date({ error: "Birthdate is required. Please enter a valid date." }),
+  bloodGroup: z.nativeEnum(BloodGroup, { error: "Please select a valid blood group." }).optional().nullable(),
+  password: z.string({ error: "Password is required." }).min(8, "Password must be at least 8 characters.").max(100, "Password must be 100 characters or less."),
   role: z.nativeEnum(Role).optional(),
 });
 
@@ -20,10 +20,22 @@ export async function POST(request: Request) {
     return Response.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = memberSchema.safeParse(await request.json());
+  const body = await request.json();
+
+  // The popup uses "birthdate"; normalize it to the API schema field "birthDate".
+  const normalizedBody = {
+    ...body,
+    birthDate: body.birthDate ?? body.birthdate,
+  };
+
+  const parsed = memberSchema.safeParse(normalizedBody);
   if (!parsed.success) {
+    const issue = parsed.error.issues[0];
     return Response.json(
-      { message: parsed.error.issues[0]?.message ?? "Invalid member data." },
+      {
+        message: issue?.message ?? "Please check the entered member details.",
+        field: issue?.path?.[0] ?? null,
+      },
       { status: 400 }
     );
   }

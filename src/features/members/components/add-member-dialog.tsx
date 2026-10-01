@@ -63,7 +63,7 @@ export function AddMemberDialog() {
         body: JSON.stringify({ name, birthdate, bloodGroup, mobile, password }),
       });
 
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as { message?: string; field?: string };
 
       if (!response.ok) {
         const msg = result.message ?? "Unable to add member.";
