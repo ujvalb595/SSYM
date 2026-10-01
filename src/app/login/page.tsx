@@ -59,11 +59,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f7f4ff] px-5 py-10 text-[#24203a]">
+    <main className="relative flex min-h-screen bg-[url('/login-background.png')] bg-cover bg-center items-center justify-center overflow-hidden bg-[#f7f4ff] px-5 py-10 text-[#24203a]">
       <div className="absolute -left-32 top-12 size-96 rounded-full bg-fuchsia-200/40 blur-3xl" />
       <div className="absolute -right-28 bottom-0 size-96 rounded-full bg-violet-300/40 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white bg-white/85 shadow-[0_25px_80px_rgb(73_42_155_/_0.18)] backdrop-blur md:grid-cols-[1.05fr_0.95fr]">
-        <div className="hidden min-h-[590px] flex-col justify-between bg-gradient-to-br from-[#5d47d9] via-[#8255ef] to-[#c05ce9] p-10 text-white md:flex bg-[url('/login-img.jpg')] bg-cover bg-center">
+        <div className="hidden min-h-[590px] flex-col justify-between bg-gradient-to-br from-[#5d47d9] via-[#8255ef] to-[#c05ce9] p-10 text-white md:flex bg-[url('/shiv-sai-banner.png')] bg-contain bg-center">
         </div>
         <div className="flex min-h-[590px] items-center p-7 sm:p-12">
           <div className="w-full">
