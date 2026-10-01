@@ -290,7 +290,7 @@ body {
   border-radius: 1rem;
   border: 1px solid #e7e5e4;
   background-color: rgba(250, 250, 249, 0.6);
-  padding: 0.625rem 0.875rem;
+  padding: .625rem .875rem .625rem 2rem;
   font-size: 0.875rem;
   color: #1c1917;
   outline: none;
