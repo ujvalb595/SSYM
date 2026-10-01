@@ -6,11 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { syncMemberBirthdayToGoogleCalendar } from "@/lib/google-calendar";
 
 const memberSchema = z.object({
-  name: z.string().trim().min(2).max(100),
+  name: z.string().trim().min(2, "Full name must be at least 2 characters.").max(100, "Full name must be 100 characters or less."),
   mobile: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number."),
-  birthDate: z.coerce.date(),
+  birthDate: z.coerce.date({ error: "Please enter a valid birthdate." }),
   bloodGroup: z.nativeEnum(BloodGroup).optional().nullable(),
-  password: z.string().min(8).max(100),
+  password: z.string().min(8, "Password must be at least 8 characters.").max(100, "Password must be 100 characters or less."),
   role: z.nativeEnum(Role).optional(),
 });
 
