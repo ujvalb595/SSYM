@@ -84,8 +84,10 @@ export default async function PaymentsPage() {
           <PaymentsRequestsTable initialRequests={userPayments} isAdmin={false} />
         </section>
 
-        {/* All Payments History Section (Completed / Done Payments Across Mandal) */}
-        <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
+        {session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN" ? (
+          <>
+            {/* All Payments History Section (Completed / Done Payments Across Mandal) */}
+            <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
           <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <span className="rounded-xl bg-emerald-100 p-2.5 text-emerald-600">
@@ -100,7 +102,9 @@ export default async function PaymentsPage() {
             </div>
           </div>
           <PaymentHistoryTable items={approvedPayments} />
-        </section>
+            </section>
+          </>
+        ) : null}
       </main>
     </DashboardShell>
   );
