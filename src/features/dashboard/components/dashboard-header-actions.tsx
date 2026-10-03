@@ -511,7 +511,6 @@ export function DashboardHeaderActions({
 
                     {Array.from({ length: daysInCalMonth }).map((_, i) => {
                       const dayNum = i + 1;
-                      const dateObj = new Date(calYear, calMonth, dayNum);
 
                       let isSelected = false;
                       let isInRange = false;
