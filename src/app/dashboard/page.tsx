@@ -34,6 +34,7 @@ export default async function DashboardPage() {
     recentPayments: [],
     upcomingBirthdays: [],
     chartData: [],
+    userPayments: [],
     financialYearStart:
       new Date().getMonth() + 1 >= 10
         ? new Date().getFullYear()
@@ -59,6 +60,7 @@ export default async function DashboardPage() {
         rawPayments,
         rawMembers,
         fyGroupedPayments,
+        rawUserPayments,
       ] = await Promise.all([
         // 1. Total Members count
         prisma.user.count(),
@@ -132,6 +134,12 @@ export default async function DashboardPage() {
           _sum: {
             amount: true,
           },
+        }),
+
+        // 9. Logged-in user's payments for their personal Collection Progress
+        prisma.payment.findMany({
+          where: { userId: session.user.id },
+          select: { month: true, year: true, status: true, amount: true },
         }),
       ]);
 
@@ -242,6 +250,12 @@ export default async function DashboardPage() {
         recentPayments,
         upcomingBirthdays,
         chartData,
+        userPayments: rawUserPayments.map((p) => ({
+          month: p.month,
+          year: p.year,
+          status: p.status,
+          amount: Number(p.amount),
+        })),
         financialYearStart,
       };
     } catch (e) {

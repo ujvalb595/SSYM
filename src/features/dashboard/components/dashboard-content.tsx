@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -44,6 +44,12 @@ export interface DashboardData {
     age: number;
   }[];
   chartData: ChartItem[];
+  userPayments: {
+    month: number;
+    year: number;
+    status: string;
+    amount: number;
+  }[];
   financialYearStart: number;
 }
 
@@ -62,6 +68,15 @@ export function DashboardContent({
   });
   const [activeFilterLabel, setActiveFilterLabel] = useState<string>("This Month");
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const activeStepRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeStepRef.current) {
+      setTimeout(() => {
+        activeStepRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [data]);
 
   useEffect(() => {
     if (data) {
@@ -111,12 +126,10 @@ export function DashboardContent({
   const totalExpenses = metricsData.totalExpenses;
   const targetCollection = data?.targetCollection || 50000;
 
-  const collectionPercent =
     targetCollection > 0
       ? Math.min(Math.round((monthlyCollection / targetCollection) * 100), 100)
       : 0;
 
-  const remainingTarget = Math.max(targetCollection - monthlyCollection, 0);
 
   const metrics = [
     [
@@ -141,11 +154,6 @@ export function DashboardContent({
       "bg-fuchsia-100 text-fuchsia-600",
     ],
   ] as const;
-
-  const currentMonthYearName = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
 
   return (
     <section className="mx-auto max-w-7xl p-5 md:p-9">
@@ -211,7 +219,7 @@ export function DashboardContent({
 
         <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="font-bold text-[#24203a]">Collection Progress</h3>
-          <p className="text-sm text-stone-500">Current Financial Year • Monthly Target</p>
+          <p className="text-sm text-stone-500">Your Personal Payment Status</p>
           {loadingMetrics ? (
             <div className="mt-5 space-y-3 animate-pulse">
               {Array.from({ length: 6 }).map((_, index) => (
@@ -219,35 +227,104 @@ export function DashboardContent({
               ))}
             </div>
           ) : (
-            <div className="mt-5 max-h-[420px] space-y-2.5 overflow-y-auto pr-1 no-scrollbar">
-              {data?.chartData?.map((item) => {
-                const target = data.targetCollection || 0;
-                const percent = target > 0 ? Math.min(Math.round((item.collected / target) * 100), 100) : 0;
-                const remaining = Math.max(target - item.collected, 0);
-                const monthYear = ["OCT", "NOV", "DEC"].includes(item.month)
-                  ? data.financialYearStart
-                  : data.financialYearStart + 1;
-                return (
-                  <div key={item.month} className="rounded-xl border border-stone-100 bg-stone-50/40 p-2.5">
-                    <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 font-extrabold text-[#24203a]">{item.month}</span>
-                        <span className="text-stone-400">{monthYear}</span>
+            <div className="mt-5 max-h-[420px] px-2 pt-2 overflow-y-auto pr-1 no-scrollbar">
+              {(() => {
+                const MANDAL_MONTH_CYCLE = [
+                  { name: "Oct", fullMonth: "October", monthNum: 10, year: 2026 },
+                  { name: "Nov", fullMonth: "November", monthNum: 11, year: 2026 },
+                  { name: "Dec", fullMonth: "December", monthNum: 12, year: 2026 },
+                  { name: "Jan", fullMonth: "January", monthNum: 1, year: 2027 },
+                  { name: "Feb", fullMonth: "February", monthNum: 2, year: 2027 },
+                  { name: "Mar", fullMonth: "March", monthNum: 3, year: 2027 },
+                  { name: "Apr", fullMonth: "April", monthNum: 4, year: 2027 },
+                  { name: "May", fullMonth: "May", monthNum: 5, year: 2027 },
+                  { name: "Jun", fullMonth: "June", monthNum: 6, year: 2027 },
+                  { name: "Jul", fullMonth: "July", monthNum: 7, year: 2027 },
+                  { name: "Aug", fullMonth: "August", monthNum: 8, year: 2027 },
+                  { name: "Sept", fullMonth: "September", monthNum: 9, year: 2027 },
+                ];
+                
+                const paymentMap = new Map();
+                data?.userPayments?.forEach((p) => paymentMap.set(`${p.year}-${p.month}`, p));
+
+                let activeStepIndex = MANDAL_MONTH_CYCLE.length;
+                for (let i = 0; i < MANDAL_MONTH_CYCLE.length; i++) {
+                  const key = `${MANDAL_MONTH_CYCLE[i].year}-${MANDAL_MONTH_CYCLE[i].monthNum}`;
+                  const record = paymentMap.get(key);
+                  if (!record || record.status === "REJECTED") {
+                    activeStepIndex = i;
+                    break;
+                  }
+                }
+
+                return MANDAL_MONTH_CYCLE.map((item, index) => {
+                  const key = `${item.year}-${item.monthNum}`;
+                  const record = paymentMap.get(key);
+                  const status = record?.status;
+                  
+                  const isCompleted = status === "APPROVED";
+                  const isPending = status === "PENDING";
+                  const isRejected = status === "REJECTED";
+                  const isActive = index === activeStepIndex;
+                  const isPast = index < activeStepIndex;
+                  
+                  const lineIsColored = isCompleted;
+
+                  return (
+                    <div 
+                      key={key} 
+                      ref={isActive ? activeStepRef : null}
+                      className="relative flex items-start gap-4 pb-8 last:pb-2"
+                    >
+                      {/* Vertical Line */}
+                      {index !== MANDAL_MONTH_CYCLE.length - 1 && (
+                        <div 
+                          className={`absolute left-[13px] top-7 bottom-[-7px] w-[2px] ${
+                            lineIsColored ? "bg-[#7257f4]" : "bg-stone-200"
+                          }`} 
+                        />
+                      )}
+
+                      {/* Step Indicator */}
+                      <div className="relative z-10 shrink-0 mt-0.5">
+                        {isCompleted ? (
+                          <div className="flex size-7 items-center justify-center rounded-full bg-[#7257f4] text-white ring-4 ring-white">
+                            <CheckCircle2 size={14} strokeWidth={3} />
+                          </div>
+                        ) : isActive ? (
+                          <div className="flex size-7 items-center justify-center rounded-full bg-white ring-4 ring-violet-100">
+                            <div className="size-3.5 rounded-full bg-[#7257f4]" />
+                          </div>
+                        ) : (
+                          <div className="flex size-7 items-center justify-center rounded-full border-2 border-stone-200 bg-white ring-4 ring-white">
+                            <div className="size-2.5 rounded-full bg-stone-300" />
+                          </div>
+                        )}
                       </div>
-                      <span className="font-bold text-[#7257f4]">{percent}%</span>
+
+                      {/* Step Content */}
+                      <div className="flex-1 pt-1">
+                        <h4 className={`text-base font-bold ${isActive || isCompleted || isPast ? 'text-[#24203a]' : 'text-stone-500'}`}>
+                          {item.fullMonth} {item.year}
+                        </h4>
+                        <p className="mt-0.5 text-sm text-stone-500">
+                          {isCompleted ? (
+                            <span className="font-medium text-emerald-600">Payment Done • ₹{record.amount.toLocaleString()}</span>
+                          ) : isPending ? (
+                            <span className="font-medium text-amber-600">Payment Pending Verification</span>
+                          ) : isRejected ? (
+                            <span className="font-medium text-rose-600">Payment Rejected • Action Required</span>
+                          ) : isActive ? (
+                            <span className="font-medium text-[#7257f4]">Payment Due • ₹500 remaining</span>
+                          ) : (
+                            <span>Upcoming • ₹500</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-violet-100">
-                      <div className="h-full rounded-full bg-[#7257f4]" style={{ width: `${percent}%` }} />
-                    </div>
-                    <div className="mt-1.5 flex justify-between gap-2 text-[11px]">
-                      <span className="font-semibold text-stone-600">₹{item.collected.toLocaleString("en-IN")} / ₹{target.toLocaleString("en-IN")}</span>
-                      <span className="text-right text-stone-400">
-                        {remaining > 0 ? `₹${remaining.toLocaleString("en-IN")} left` : "Target met"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
         </article>
