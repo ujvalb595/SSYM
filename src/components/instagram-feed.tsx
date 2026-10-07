@@ -286,7 +286,7 @@ function InstaVideoPlayer({
   const [hasError, setHasError] = useState(false);
   const [showControlBadge, setShowControlBadge] = useState<"play" | "pause" | null>(null);
 
-  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;

@@ -51,7 +51,7 @@ export function PromoteMemberDialog({ members }: { members: NonAdminUser[] }) {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`/api/admins/${selectedMemberId}`, {
+      const res = await fetch(`/api/members/${selectedMemberId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: selectedRole as Role }),
