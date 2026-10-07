@@ -5,6 +5,7 @@ import Link from "next/link";
 import { UsersRound, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AddMemberDialog } from "./add-member-dialog";
 import { EditMemberDialog } from "./edit-member-dialog";
+import { DeleteMemberDialog } from "./delete-member-dialog";
 
 export interface MemberRowData {
   id: string;
@@ -213,7 +214,7 @@ export function MembersDirectoryView({
                     )}
 
                     {canManageMembers && (
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
                         <EditMemberDialog
                           member={{
                             id: member.id,
@@ -222,6 +223,10 @@ export function MembersDirectoryView({
                             rawBirthDate: member.rawBirthDate,
                             bloodGroup: member.rawBloodGroup || member.bloodGroup,
                           }}
+                        />
+                        <DeleteMemberDialog
+                          memberId={member.id}
+                          memberName={member.name}
                         />
                       </td>
                     )}

@@ -224,3 +224,76 @@ export async function getPaymentsData() {
   };
 }
 
+
+export async function getUsersForPayment() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const role = session.user.role;
+  if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN) return [];
+
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, membershipNumber: true },
+    orderBy: { name: 'asc' }
+  });
+  return users;
+}
+
+export async function adminSubmitPaymentRequest(
+  userId: string,
+  selectedMonthValues: string[],
+  paymentDate: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const role = session.user.role;
+  if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN) {
+    throw new Error("Permission denied. Only admins can add payments on behalf of users.");
+  }
+
+  if (!selectedMonthValues || selectedMonthValues.length === 0) {
+    throw new Error("No months selected");
+  }
+
+  const amountPerMonth = 500;
+  const adminId = session.user.id;
+  const parsedDate = paymentDate ? new Date(paymentDate) : new Date();
+
+  for (const item of selectedMonthValues) {
+    const [yearStr, monthStr] = item.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    if (isNaN(year) || isNaN(month)) continue;
+
+    await prisma.payment.upsert({
+      where: {
+        userId_month_year: {
+          userId,
+          month,
+          year,
+        },
+      },
+      update: {
+        status: PaymentStatus.APPROVED,
+        amount: amountPerMonth,
+        submittedAt: parsedDate,
+        approvedAt: new Date(),
+        approvedById: adminId,
+        remarks: "Added manually by admin",
+      },
+      create: {
+        userId,
+        month,
+        year,
+        amount: amountPerMonth,
+        status: PaymentStatus.APPROVED,
+        submittedAt: parsedDate,
+        approvedAt: new Date(),
+        approvedById: adminId,
+        remarks: "Added manually by admin",
+      },
+    });
+  }
+
+  revalidatePath("/payments");
+  return { success: true };
+}

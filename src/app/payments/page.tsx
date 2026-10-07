@@ -5,13 +5,15 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 import { MakePaymentCard } from "@/features/payments/components/make-payment-card";
 import { PaymentsRequestsTable } from "@/features/payments/components/payments-requests-table";
 import { PaymentHistoryTable } from "@/features/payments/components/payment-history-table";
-import { getPaymentsData } from "@/features/payments/actions/payment-actions";
+import { getPaymentsData, getUsersForPayment } from "@/features/payments/actions/payment-actions";
+import { AdminAddPaymentCard } from "@/features/payments/components/admin-add-payment-card";
 
 export default async function PaymentsPage() {
   const session = await auth();
   if (!session?.user?.isActive) redirect("/login");
 
   const { userPayments, allPayments, isAdmin } = await getPaymentsData();
+  const users = isAdmin ? await getUsersForPayment() : [];
 
   const pendingCount = isAdmin
     ? allPayments.filter((p) => p.status === "PENDING").length
@@ -36,6 +38,9 @@ export default async function PaymentsPage() {
             </p>
           </div>
         </div>
+
+        {/* Admin Add Payment Section */}
+        {isAdmin && <AdminAddPaymentCard users={users} />}
 
         {/* Make Payment Section */}
         <MakePaymentCard userPayments={userPayments} />
