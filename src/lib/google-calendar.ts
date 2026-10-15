@@ -399,7 +399,7 @@ export async function deleteCalendarEvent(id: string) {
 export async function syncMemberBirthdayToGoogleCalendar(options: {
   memberName: string;
   birthDate: Date | string;
-  mobileNumber?: string;
+  mobileNumber?: string | null;
   memberId?: string;
 }) {
   const { calendarId } = getGoogleCredentials();

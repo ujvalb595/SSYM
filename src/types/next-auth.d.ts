@@ -7,6 +7,7 @@ declare module "next-auth" {
     role: Role;
     isActive: boolean;
     mobileNumber?: string;
+    email?: string | null;
   }
   interface Session {
     user: {
@@ -14,6 +15,7 @@ declare module "next-auth" {
       role: Role;
       isActive: boolean;
       mobileNumber?: string;
+      email?: string | null;
     } & NonNullable<Session["user"]>;
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     role?: Role;
     isActive?: boolean;
     mobileNumber?: string;
+    email?: string | null;
   }
 }

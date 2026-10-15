@@ -40,17 +40,19 @@ export default function LoginPage() {
     setLoading(true);
 
     const values = new FormData(event.currentTarget);
-    const mobileNumber = String(values.get("mobileNumber") || values.get("mobile") || "").trim();
+    const identifier = String(values.get("identifier") || values.get("mobileNumber") || "").trim();
     const password = String(values.get("password") || "");
 
     const result = await signIn("credentials", {
-      mobileNumber,
+      mobileNumber: identifier,
+      identifier,
+      email: identifier,
       password,
       redirect: false,
       callbackUrl: "/social",
     });
     if (result?.error) {
-      setError("Invalid mobile number or password.");
+      setError("Invalid mobile number/email or password.");
       setLoading(false);
       return;
     }
@@ -84,16 +86,13 @@ export default function LoginPage() {
             </p>
             <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
               <label className="block text-sm font-semibold">
-                Mobile Number
+                Mobile Number or Email
                 <input
                   required
-                  name="mobileNumber"
-                  type="tel"
-                  autoComplete="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]{10}"
-                  maxLength={10}
-                  placeholder="Enter your 10-digit mobile number"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="Enter 10-digit mobile number or email"
                   className="mt-2 w-full rounded-xl border border-[#e6e1f3] bg-white px-4 py-3 outline-none transition placeholder:text-stone-400 focus:border-[#8660ee] focus:ring-4 focus:ring-violet-100"
                 />
               </label>
@@ -200,7 +199,7 @@ export default function LoginPage() {
                           <div>
                             <p className="text-xs font-bold text-[#24203a]">{admin.name}</p>
                             <span className="inline-block text-[10px] font-semibold text-violet-600 bg-violet-100/70 px-1.5 py-0.5 rounded">
-                              {admin.role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
+                              {admin.role === "SUPER_ADMIN" ? "Super Admin" : admin.role === "PAYMENT_ADMIN" ? "Payment Admin" : "Admin"}
                             </span>
                           </div>
                         </div>

@@ -24,6 +24,7 @@ export default async function MemberDetailPage({
       id: true,
       name: true,
       mobileNumber: true,
+      email: true,
       image: true,
       role: true,
       isActive: true,
@@ -58,9 +59,10 @@ export default async function MemberDetailPage({
   // Payment status card visibility: Super Admin, Admin, or User viewing their OWN profile
   const isSuperAdmin = session.user.role === Role.SUPER_ADMIN;
   const isAdmin = session.user.role === Role.ADMIN;
+  const isPaymentAdmin = session.user.role === Role.PAYMENT_ADMIN;
   const isSelf = session.user.id === user.id;
 
-  const canViewPaymentStatus = isSuperAdmin || isAdmin || isSelf;
+  const canViewPaymentStatus = isSuperAdmin || isAdmin || isPaymentAdmin || isSelf;
 
   const userPayments = canViewPaymentStatus
     ? await prisma.payment.findMany({
@@ -98,6 +100,8 @@ export default async function MemberDetailPage({
       ? "Super Admin"
       : user.role === "ADMIN"
       ? "Admin"
+      : user.role === "PAYMENT_ADMIN"
+      ? "Payment Admin"
       : "Mandal Member";
 
   const bloodGroupText =
@@ -124,6 +128,7 @@ export default async function MemberDetailPage({
             id: user.id,
             name: user.name,
             mobileNumber: user.mobileNumber,
+            email: user.email,
             image: user.image,
             role: user.role,
             isActive: user.isActive,

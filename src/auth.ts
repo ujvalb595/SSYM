@@ -12,29 +12,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       credentials: {
         mobileNumber: {},
+        identifier: {},
+        email: {},
         password: {},
       },
       authorize: async (credentials) => {
-        const rawMobile = String(credentials?.mobileNumber || "").trim();
+        const rawIdentifier = String(credentials?.mobileNumber || credentials?.identifier || credentials?.email || "").trim();
         const inputPassword = String(credentials?.password || "");
 
-        if (!rawMobile || !inputPassword) return null;
+        if (!rawIdentifier || !inputPassword) return null;
 
-        const digitsOnly = rawMobile.replace(/\D/g, "");
+        const digitsOnly = rawIdentifier.replace(/\D/g, "");
 
         try {
           // Dynamic database authentication against User table in PostgreSQL
           const user = await prisma.user.findFirst({
             where: {
               OR: [
-                { mobileNumber: rawMobile },
-                ...(digitsOnly ? [{ mobileNumber: digitsOnly }] : []),
+                { email: { equals: rawIdentifier, mode: "insensitive" } },
+                { mobileNumber: rawIdentifier },
+                ...(digitsOnly.length === 10 ? [{ mobileNumber: digitsOnly }] : []),
               ],
             },
           });
 
           if (!user) {
-            console.log("❌ Auth: User not found in database for mobile number:", rawMobile);
+            console.log("❌ Auth: User not found in database for identifier:", rawIdentifier);
             return null;
           }
 
@@ -43,19 +46,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          const isPasswordValid = await bcrypt.compare(inputPassword, user.passwordHash);
+          const isPasswordValid =
+            (await bcrypt.compare(inputPassword, user.passwordHash)) ||
+            (inputPassword.trim() !== inputPassword &&
+              (await bcrypt.compare(inputPassword.trim(), user.passwordHash)));
 
           if (!isPasswordValid) {
-            console.log("❌ Auth: Invalid password for mobile number:", user.mobileNumber);
+            console.log("❌ Auth: Invalid password for user:", user.name);
             return null;
           }
 
-          console.log("✅ Auth: User authenticated dynamically from DB:", user.name);
+          console.log("✅ Auth: User authenticated dynamically from DB:", user.name, "Role:", user.role);
 
           return {
             id: user.id,
             name: user.name,
-            mobileNumber: user.mobileNumber,
+            email: user.email,
+            mobileNumber: user.mobileNumber || "",
             role: user.role,
             isActive: user.isActive,
           };
@@ -73,6 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.isActive = user.isActive;
         token.mobileNumber = user.mobileNumber;
+        token.email = user.email;
       }
 
       if (trigger === "update" && session) {
@@ -89,6 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role || Role.USER) as Role;
         session.user.isActive = token.isActive ?? true;
         session.user.mobileNumber = (token.mobileNumber || "") as string;
+        session.user.email = (token.email || "") as string;
       }
       return session;
     },

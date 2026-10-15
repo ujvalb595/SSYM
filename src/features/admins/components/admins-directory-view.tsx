@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Role } from "@prisma/client";
-import { Crown, ShieldCheck, UserCheck, Search } from "lucide-react";
+import { Crown, ShieldCheck, UserCheck, Search, CreditCard } from "lucide-react";
 import { AdminCardsGrid, AdminCardItem } from "./admin-cards-grid";
 import { PromoteMemberDialog, NonAdminUser } from "./promote-member-dialog";
 
@@ -11,6 +11,7 @@ export function AdminsDirectoryView({
   nonAdminMembers,
   superAdminCount,
   adminCount,
+  paymentAdminCount = 0,
   currentUserId,
   currentUserRole,
   isSuperAdmin,
@@ -19,6 +20,7 @@ export function AdminsDirectoryView({
   nonAdminMembers: NonAdminUser[];
   superAdminCount: number;
   adminCount: number;
+  paymentAdminCount?: number;
   currentUserId: string;
   currentUserRole: Role;
   isSuperAdmin: boolean;
@@ -77,7 +79,7 @@ export function AdminsDirectoryView({
       </div>
 
       {/* Admin Quick Metrics Bar */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card-base flex items-center gap-4 p-5">
           <span className="btn-icon size-12 rounded-2xl">
             <ShieldCheck size={24} />
@@ -105,6 +107,16 @@ export function AdminsDirectoryView({
           <div>
             <p className="text-caption">Standard Admins</p>
             <h4 className="text-2xl font-extrabold text-[#24203a]">{adminCount}</h4>
+          </div>
+        </div>
+
+        <div className="card-base flex items-center gap-4 border-emerald-200 bg-emerald-50/50 p-5">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <CreditCard size={24} />
+          </span>
+          <div>
+            <p className="text-caption text-emerald-800/70">Payment Admins</p>
+            <h4 className="text-2xl font-extrabold text-emerald-900">{paymentAdminCount}</h4>
           </div>
         </div>
       </section>

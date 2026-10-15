@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { CalendarDays, Crown, ExternalLink, Phone, ShieldCheck } from "lucide-react";
+import { CalendarDays, Crown, CreditCard, ExternalLink, Phone, ShieldCheck } from "lucide-react";
 import { AdminRowActions } from "./admin-row-actions";
 
 export interface AdminCardItem {
@@ -50,6 +50,7 @@ export function AdminCardsGrid({
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {admins.map((admin) => {
             const isSuperAdminRole = admin.role === Role.SUPER_ADMIN;
+            const isPaymentAdminRole = admin.role === Role.PAYMENT_ADMIN;
             const isSelf = admin.id === currentUserId;
 
             return (
@@ -65,6 +66,8 @@ export function AdminCardsGrid({
                         className={`flex size-12 items-center justify-center rounded-2xl text-sm font-bold shadow-sm ${
                           isSuperAdminRole
                             ? "bg-gradient-to-br from-amber-100 via-amber-200 to-amber-300 text-amber-900 border border-amber-300/80"
+                            : isPaymentAdminRole
+                            ? "bg-gradient-to-br from-emerald-100 via-teal-100 to-emerald-200 text-emerald-800 border border-emerald-300/80"
                             : "bg-gradient-to-br from-violet-100 via-fuchsia-100 to-violet-200 text-[#7257f4]"
                         }`}
                       >
@@ -84,6 +87,11 @@ export function AdminCardsGrid({
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-300">
                               <Crown size={12} className="text-amber-600" />
                               Super Admin
+                            </span>
+                          ) : isPaymentAdminRole ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-300">
+                              <CreditCard size={12} className="text-emerald-600" />
+                              Payment Admin
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-bold text-[#7257f4]">

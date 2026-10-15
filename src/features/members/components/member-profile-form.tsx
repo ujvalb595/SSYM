@@ -29,7 +29,8 @@ import {
 export interface ProfileUserData {
   id: string;
   name: string;
-  mobileNumber: string;
+  mobileNumber?: string | null;
+  email?: string | null;
   image?: string | null;
   role: Role;
   isActive: boolean;
@@ -350,7 +351,7 @@ export function MemberProfileForm({
                 <input
                   required
                   disabled={!isAdminOrSuperAdmin}
-                  defaultValue={user.mobileNumber}
+                  defaultValue={user.mobileNumber || ""}
                   name="mobile"
                   type="tel"
                   inputMode="numeric"
@@ -410,6 +411,7 @@ export function MemberProfileForm({
                 disabled={!isSuperAdmin && user.role === Role.SUPER_ADMIN}
                 options={[
                   { label: "Member (User)", value: Role.USER },
+                  { label: "Payment Admin", value: Role.PAYMENT_ADMIN },
                   { label: "Admin", value: Role.ADMIN },
                   ...(isSuperAdmin ? [{ label: "Super Admin", value: Role.SUPER_ADMIN }] : []),
                 ]}

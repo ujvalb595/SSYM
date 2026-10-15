@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXCLUDE_ORG_USER_FILTER } from "@/lib/constants";
 import { Role } from "@prisma/client";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import {
@@ -63,7 +64,9 @@ export default async function DashboardPage() {
         rawUserPayments,
       ] = await Promise.all([
         // 1. Total Members count
-        prisma.user.count(),
+        prisma.user.count({
+          where: EXCLUDE_ORG_USER_FILTER,
+        }),
 
         // 2. Approved Monthly Collection sum for current month
         prisma.payment.aggregate({
@@ -113,6 +116,7 @@ export default async function DashboardPage() {
           where: {
             birthDate: { not: null },
             isActive: true,
+            ...EXCLUDE_ORG_USER_FILTER,
           },
           select: {
             id: true,

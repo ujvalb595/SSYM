@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXCLUDE_ORG_USER_FILTER } from "@/lib/constants";
 import { Prisma, Role } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -225,7 +226,12 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({
+        where: {
+          isActive: true,
+          ...EXCLUDE_ORG_USER_FILTER,
+        },
+      }),
     ]);
 
     const totalPaymentsAmount = payments.reduce((acc, p) => acc + Number(p.amount), 0);

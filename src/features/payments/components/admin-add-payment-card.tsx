@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Sparkles, Check, ChevronDown } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { UserPlus, Sparkles, Check, ChevronDown, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { MonthMultiSelect, MonthOption } from "@/components/ui/month-multi-select";
 import { adminSubmitPaymentRequest } from "@/features/payments/actions/payment-actions";
+import type { PaymentItemData } from "@/features/payments/components/payments-requests-table";
+import { PaymentStatus } from "@prisma/client";
 
 interface UserOption {
   id: string;
@@ -15,6 +18,7 @@ interface UserOption {
 
 interface AdminAddPaymentCardProps {
   users: UserOption[];
+  allPayments?: PaymentItemData[];
 }
 
 // Generate Mandal Months for 1 year cycle (October 2026 to September 2027)
@@ -51,8 +55,11 @@ function generateMandalMonthOptions(): MonthOption[] {
 const BASE_MANDAL_MONTH_OPTIONS = generateMandalMonthOptions();
 const MONTHLY_FEE = 500; // ₹500 per month
 
-export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
+export function AdminAddPaymentCard({ users, allPayments = [] }: AdminAddPaymentCardProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isPaymentAdmin = session?.user?.role === "PAYMENT_ADMIN";
+
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [paymentDate, setPaymentDate] = useState<string>(
@@ -61,6 +68,53 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+
+  // Filter months for the selected member to disable already paid/pending months
+  const monthOptions = useMemo<MonthOption[]>(() => {
+    if (!selectedUserId) return BASE_MANDAL_MONTH_OPTIONS;
+
+    const userPaymentStatusMap = new Map<string, PaymentStatus>();
+    allPayments
+      .filter((p) => p.userId === selectedUserId)
+      .forEach((p) => {
+        const monthStr = String(p.month).padStart(2, "0");
+        const key = `${p.year}-${monthStr}`;
+        userPaymentStatusMap.set(key, p.status);
+      });
+
+    return BASE_MANDAL_MONTH_OPTIONS.map((opt) => {
+      const status = userPaymentStatusMap.get(opt.value);
+      if (status === PaymentStatus.APPROVED) {
+        return { ...opt, disabled: true, disabledReason: "Paid (Done)" };
+      }
+      if (status === PaymentStatus.PENDING) {
+        return { ...opt, disabled: true, disabledReason: "Pending" };
+      }
+      return opt;
+    });
+  }, [selectedUserId, allPayments]);
+
+  const handleMemberChange = (newUserId: string) => {
+    setSelectedUserId(newUserId);
+    // Clear any months that would be disabled for this new user
+    if (!newUserId) {
+      setSelectedMonths([]);
+      return;
+    }
+
+    const userPaymentStatusMap = new Map<string, PaymentStatus>();
+    allPayments
+      .filter((p) => p.userId === newUserId)
+      .forEach((p) => {
+        const monthStr = String(p.month).padStart(2, "0");
+        const key = `${p.year}-${monthStr}`;
+        userPaymentStatusMap.set(key, p.status);
+      });
+
+    setSelectedMonths((prev) =>
+      prev.filter((mVal) => !userPaymentStatusMap.has(mVal))
+    );
+  };
 
   const totalAmount = selectedMonths.length * MONTHLY_FEE;
 
@@ -91,9 +145,15 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
         paymentDate
       );
       if (res?.success) {
-        toast.success("Transaction Added!", {
-          description: `Automatically approved payment for ${selectedMonths.length} month(s).`,
-        });
+        if (res.isPending) {
+          toast.success("Payment Request Raised!", {
+            description: `Submitted for ${selectedMonths.length} month(s). Sent to Super Admin for verification and approval.`,
+          });
+        } else {
+          toast.success("Transaction Added!", {
+            description: `Automatically approved payment for ${selectedMonths.length} month(s).`,
+          });
+        }
         setSelectedMonths([]);
         setSelectedUserId("");
         setIsConfirmed(false);
@@ -116,9 +176,15 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
         onClick={() => setShowForm(!showForm)}
       >
         <div className="flex items-center gap-2">
-          <UserPlus className="text-emerald-500" size={20} />
+          {isPaymentAdmin ? (
+            <CreditCard className="text-emerald-500" size={20} />
+          ) : (
+            <UserPlus className="text-emerald-500" size={20} />
+          )}
           <h3 className="text-lg font-bold text-[#24203a]">
-            Admin: Add User Payment
+            {isPaymentAdmin
+              ? "Payment Admin: Raise Member Payment Request"
+              : "Admin: Add User Payment"}
           </h3>
         </div>
         <ChevronDown 
@@ -128,6 +194,18 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
 
       {showForm && (
         <div className="mt-6 flex flex-col gap-4 border-t border-stone-100 pt-4">
+          {isPaymentAdmin && (
+            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 text-xs text-emerald-800 flex items-start gap-2.5">
+              <CreditCard className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-900">Payment Admin Workflow</p>
+                <p className="mt-0.5 text-emerald-700 leading-relaxed">
+                  As Payment Admin, you can raise payment requests on behalf of other members. These requests will remain in <strong>Pending</strong> status until verified and approved by the <strong>Super Admin</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
@@ -135,7 +213,7 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
               </label>
               <select
                 value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
+                onChange={(e) => handleMemberChange(e.target.value)}
                 className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm focus:border-[#7257f4] focus:outline-none focus:ring-1 focus:ring-[#7257f4]"
               >
                 <option value="">-- Choose Member --</option>
@@ -165,10 +243,10 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
               Select Months
             </label>
             <MonthMultiSelect
-              options={BASE_MANDAL_MONTH_OPTIONS}
+              options={monthOptions}
               selectedValues={selectedMonths}
               onChange={setSelectedMonths}
-              placeholder="Select paid months"
+              placeholder={selectedUserId ? "Select paid months" : "First select a member above"}
             />
           </div>
 
@@ -181,7 +259,15 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
               className="mt-1 h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
             />
             <label htmlFor="confirm-payment" className="text-sm text-stone-600 cursor-pointer">
-              I confirm that I have received this payment offline/cash and want to add it directly as an <strong>approved</strong> transaction.
+              {isPaymentAdmin ? (
+                <>
+                  I confirm that I have collected ₹{totalAmount > 0 ? totalAmount.toLocaleString() : "500"} from this member and want to submit it to the Super Admin for <strong>verification and approval</strong>.
+                </>
+              ) : (
+                <>
+                  I confirm that I have received this payment offline/cash and want to add it directly as an <strong>approved</strong> transaction.
+                </>
+              )}
             </label>
           </div>
 
@@ -205,7 +291,9 @@ export function AdminAddPaymentCard({ users }: AdminAddPaymentCardProps) {
               <Check size={18} />
               {submitting
                 ? "Processing..."
-                : `Submit Transaction`}
+                : isPaymentAdmin
+                ? "Raise Payment Request"
+                : "Submit Transaction"}
             </button>
           </div>
         </div>
