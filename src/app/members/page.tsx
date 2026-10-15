@@ -147,7 +147,8 @@ export default async function MembersPage() {
           addedUpdatedByRole: addedUpdatedByRole || undefined,
         };
       });
-    } catch {
+    } catch (error) {
+      console.error("Failed to load members from database:", error);
       members = [];
     }
   }
