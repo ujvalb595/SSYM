@@ -42,6 +42,16 @@ export async function POST(request: Request) {
 
   const { name, mobile, birthDate, bloodGroup, password, role } = parsed.data;
 
+  if (
+    name.trim().toLowerCase() === "shiv sai yuvak mandal" ||
+    name.trim().toLowerCase() === "ssym"
+  ) {
+    return Response.json(
+      { message: "Cannot add the organization name as a member." },
+      { status: 400 }
+    );
+  }
+
   // Only SUPER_ADMIN can assign SUPER_ADMIN or ADMIN, regular ADMIN can assign ADMIN or USER
   let assignedRole: Role = Role.USER;
   if (role) {

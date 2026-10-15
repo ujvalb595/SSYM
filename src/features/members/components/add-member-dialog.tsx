@@ -3,6 +3,8 @@
 import { FormEvent, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Role } from "@prisma/client";
 import {
   Droplet,
   Eye,
@@ -10,6 +12,7 @@ import {
   LockKeyhole,
   Phone,
   Plus,
+  Shield,
   UserRound,
   X,
 } from "lucide-react";
@@ -30,6 +33,7 @@ const bloodGroupOptions = [
 ];
 
 export function AddMemberDialog() {
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +41,8 @@ export function AddMemberDialog() {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  const isSuperAdmin = session?.user?.role === Role.SUPER_ADMIN;
 
   useEffect(() => {
     setMounted(true);
@@ -55,12 +61,13 @@ export function AddMemberDialog() {
     const bloodGroup = String(form.get("bloodGroup") || "").trim();
     const mobile = String(form.get("mobile") || "").trim();
     const password = String(form.get("password") || "").trim();
+    const role = String(form.get("role") || "USER").trim();
 
     try {
       const response = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, birthdate, bloodGroup, mobile, password }),
+        body: JSON.stringify({ name, birthdate, bloodGroup, mobile, password, role }),
       });
 
       const result = (await response.json()) as { message?: string; field?: string };
@@ -178,6 +185,23 @@ export function AddMemberDialog() {
                       className="input-base pl-9 text-xs sm:text-sm"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="input-label">
+                    Role *
+                  </label>
+                  <CustomSelect
+                    name="role"
+                    defaultValue="USER"
+                    options={[
+                      { label: "Member (User)", value: "USER" },
+                      { label: "Payment Admin", value: "PAYMENT_ADMIN" },
+                      { label: "Admin", value: "ADMIN" },
+                      ...(isSuperAdmin ? [{ label: "Super Admin", value: "SUPER_ADMIN" }] : []),
+                    ]}
+                    icon={<Shield size={16} />}
+                  />
                 </div>
 
                 <div>

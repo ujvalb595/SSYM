@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  PAYMENT_ADMIN
   USER
 }
 
@@ -47,7 +48,8 @@ model User {
   id               String      @id @default(cuid())
 
   // Login Details
-  mobileNumber     String      @unique
+  mobileNumber     String?     @unique
+  email            String?     @unique
   passwordHash     String
 
   // Personal Details
@@ -78,6 +80,7 @@ model User {
   // Relations
   payments           Payment[]            @relation("MemberPayments")
   approvedPayments   Payment[]            @relation("ApprovedPayments")
+  createdPayments    Payment[]            @relation("CreatedPayments")
   paymentApprovalLog PaymentApprovalLog[]
   notifications      Notification[]
   auditLogs          AuditLog[]
@@ -129,10 +132,12 @@ model Payment {
   submittedAt   DateTime      @default(now())
   approvedAt    DateTime?
   approvedById  String?
+  createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   user          User          @relation("MemberPayments", fields: [userId], references: [id], onDelete: Cascade)
   approvedBy    User?         @relation("ApprovedPayments", fields: [approvedById], references: [id])
+  createdBy     User?         @relation("CreatedPayments", fields: [createdById], references: [id], onDelete: SetNull)
   approvalLogs  PaymentApprovalLog[]
 
   @@unique([userId, month, year])

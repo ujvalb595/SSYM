@@ -1,7 +1,9 @@
 "use client";
 
 import { PaymentStatusBadge } from "@/features/payments/components/payment-status-badge";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, Role } from "@prisma/client";
+import { EditTransactionDialog } from "@/features/payments/components/edit-transaction-dialog";
+import { CreditCard, Shield } from "lucide-react";
 
 const MONTH_NAMES_MAP: Record<number, string> = {
   1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
@@ -11,17 +13,26 @@ const MONTH_NAMES_MAP: Record<number, string> = {
 export interface HistoryItemData {
   id: string;
   userId: string;
+  createdById?: string | null;
   month: number;
   year: number;
   amount: number;
   status: PaymentStatus;
+  remarks?: string | null;
   submittedAt: Date | string;
   approvedAt?: Date | string | null;
   user?: { name: string; mobileNumber: string };
   approvedBy?: { name: string } | null;
+  createdBy?: { id: string; name: string; role: Role } | null;
 }
 
-export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
+export function PaymentHistoryTable({
+  items,
+  isSuperAdmin = false,
+}: {
+  items: HistoryItemData[];
+  isSuperAdmin?: boolean;
+}) {
   if (items.length === 0) {
     return (
       <div className="p-8 text-center text-sm text-stone-500">
@@ -41,6 +52,9 @@ export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
             <th className="px-6 py-4 font-semibold">Date Paid</th>
             <th className="px-6 py-4 font-semibold">Approved By</th>
             <th className="px-6 py-4 text-right font-semibold">Status</th>
+            {isSuperAdmin && (
+              <th className="px-6 py-4 text-right font-semibold">Action</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -62,6 +76,13 @@ export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
               .toUpperCase();
             const approverName = item.approvedBy?.name || "Admin";
 
+            const isCreatedByAdmin =
+              item.createdBy?.role === Role.ADMIN ||
+              item.createdBy?.role === Role.SUPER_ADMIN ||
+              item.createdBy?.role === Role.PAYMENT_ADMIN ||
+              (item.remarks?.toLowerCase().includes("admin") ?? false) ||
+              Boolean(item.createdById);
+
             return (
               <tr
                 key={item.id}
@@ -76,6 +97,18 @@ export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
                       <span className="font-semibold text-[#302a49]">{memberName}</span>
                       {item.user?.mobileNumber && (
                         <p className="text-xs text-stone-400">{item.user.mobileNumber}</p>
+                      )}
+                      {isCreatedByAdmin && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600 border border-stone-200">
+                            {item.createdBy?.role === Role.PAYMENT_ADMIN ? (
+                              <CreditCard size={10} className="text-emerald-600" />
+                            ) : (
+                              <Shield size={10} className="text-violet-600" />
+                            )}
+                            Admin Transaction
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -94,6 +127,30 @@ export function PaymentHistoryTable({ items }: { items: HistoryItemData[] }) {
                 <td className="px-6 py-4 text-right">
                   <PaymentStatusBadge status={PaymentStatus.APPROVED} />
                 </td>
+
+                {isSuperAdmin && (
+                  <td className="px-6 py-4 text-right">
+                    {isCreatedByAdmin ? (
+                      <div className="flex justify-end">
+                        <EditTransactionDialog
+                          transaction={{
+                            id: item.id,
+                            userId: item.userId,
+                            memberName,
+                            month: item.month,
+                            year: item.year,
+                            amount: Number(item.amount),
+                            status: item.status,
+                            submittedAt: item.submittedAt,
+                            remarks: item.remarks,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-stone-400">-</span>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}

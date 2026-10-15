@@ -27,6 +27,10 @@ export default async function PaymentsPage() {
   // Only approved payments for payment history
   const approvedPayments = allPayments.filter((p) => p.status === "APPROVED");
 
+  const userRole = session?.user?.role;
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
+  const canApprove = isSuperAdmin || userRole === "ADMIN";
+
   return (
     <DashboardShell section="Management" title="Payments">
       <main className="mx-auto max-w-7xl p-5 md:p-9">
@@ -40,7 +44,7 @@ export default async function PaymentsPage() {
         </div>
 
         {/* Admin Add Payment Section */}
-        {isAdmin && <AdminAddPaymentCard users={users} />}
+        {isAdmin && <AdminAddPaymentCard users={users} allPayments={allPayments} />}
 
         {/* Make Payment Section */}
         <MakePaymentCard userPayments={userPayments} />
@@ -64,6 +68,8 @@ export default async function PaymentsPage() {
             <PaymentsRequestsTable
               initialRequests={pendingPayments}
               isAdmin={isAdmin}
+              canApprove={canApprove}
+              isSuperAdmin={isSuperAdmin}
               currentUserId={session.user.id}
               hideStatus
               hideApprovedBy
@@ -88,8 +94,7 @@ export default async function PaymentsPage() {
           </div>
           <PaymentsRequestsTable initialRequests={userPayments} isAdmin={false} />
         </section>
-
-        {session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN" ? (
+        {isAdmin ? (
           <>
             {/* All Payments History Section (Completed / Done Payments Across Mandal) */}
             <section className="overflow-hidden rounded-2xl border border-white bg-white shadow-[0_12px_30px_rgb(77_55_135_/_0.07)]">
@@ -106,7 +111,7 @@ export default async function PaymentsPage() {
               </div>
             </div>
           </div>
-          <PaymentHistoryTable items={approvedPayments} />
+          <PaymentHistoryTable items={approvedPayments} isSuperAdmin={isSuperAdmin} />
             </section>
           </>
         ) : null}

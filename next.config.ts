@@ -5,4 +5,5 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 };
 
+// Server reload trigger - updated prisma schema
 export default nextConfig;

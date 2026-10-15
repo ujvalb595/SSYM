@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXCLUDE_ORG_USER_FILTER } from "@/lib/constants";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { AdminCardItem } from "@/features/admins/components/admin-cards-grid";
 import { NonAdminUser } from "@/features/admins/components/promote-member-dialog";
@@ -45,6 +46,7 @@ interface UserQueryResult {
   id: string;
   name: string;
   mobileNumber?: string | null;
+  email?: string | null;
   role: Role;
   joinedAt?: string | Date | null;
   bloodGroup?: string | null;
@@ -66,13 +68,14 @@ export default async function AdminsPage() {
   let nonAdminMembers: NonAdminUser[] = [];
   let superAdminCount = 0;
   let adminCount = 0;
+  let paymentAdminCount = 0;
 
   if (process.env.PRISMA_DATABASE_URL) {
     try {
       const [dbAdmins, dbNonAdmins] = await Promise.all([
         prisma.user.findMany({
           where: {
-            role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+            role: { in: [Role.SUPER_ADMIN, Role.ADMIN, Role.PAYMENT_ADMIN] },
           },
           orderBy: [{ role: "asc" }, { createdAt: "desc" }],
         }) as Promise<UserQueryResult[]>,
@@ -82,6 +85,7 @@ export default async function AdminsPage() {
               where: {
                 role: Role.USER,
                 isActive: true,
+                ...EXCLUDE_ORG_USER_FILTER,
               },
               select: {
                 id: true,
@@ -113,11 +117,12 @@ export default async function AdminsPage() {
 
         if (u.role === Role.SUPER_ADMIN) superAdminCount++;
         if (u.role === Role.ADMIN) adminCount++;
+        if (u.role === Role.PAYMENT_ADMIN) paymentAdminCount++;
 
         return {
           id: u.id,
           name: u.name,
-          mobile: u.mobileNumber || "N/A",
+          mobile: u.mobileNumber || u.email || "N/A",
           role: u.role,
           joinedDate,
           bloodGroup: u.bloodGroup ? bloodGroupLabel[u.bloodGroup] || u.bloodGroup : "O+",
@@ -130,7 +135,7 @@ export default async function AdminsPage() {
         nonAdminMembers = dbNonAdmins.map((m) => ({
           id: m.id,
           name: m.name,
-          mobile: m.mobileNumber || "N/A",
+          mobile: m.mobileNumber || m.email || "N/A",
           role: m.role,
         }));
       }
@@ -155,6 +160,7 @@ export default async function AdminsPage() {
           nonAdminMembers={nonAdminMembers}
           superAdminCount={superAdminCount}
           adminCount={adminCount}
+          paymentAdminCount={paymentAdminCount}
           currentUserId={session.user.id}
           currentUserRole={currentRole}
           isSuperAdmin={isSuperAdmin}

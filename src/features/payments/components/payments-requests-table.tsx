@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleCheck, CircleX } from "lucide-react";
+import { CircleCheck, CircleX, Crown, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, Role } from "@prisma/client";
 import { updatePaymentStatus } from "@/features/payments/actions/payment-actions";
 import { PaymentStatusBadge } from "@/features/payments/components/payment-status-badge";
+import { EditTransactionDialog } from "@/features/payments/components/edit-transaction-dialog";
 
 const MONTH_NAMES_MAP: Record<number, string> = {
   1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
@@ -16,32 +17,38 @@ const MONTH_NAMES_MAP: Record<number, string> = {
 export interface PaymentItemData {
   id: string;
   userId: string;
+  createdById?: string | null;
   month: number;
   year: number;
   amount: number;
   status: PaymentStatus;
+  remarks?: string | null;
   submittedAt: Date | string;
   approvedAt?: Date | string | null;
   user?: { name: string; mobileNumber: string };
   approvedBy?: { name: string } | null;
+  createdBy?: { id: string; name: string; role: Role } | null;
+  requiresSuperAdminApproval?: boolean;
 }
 
 interface PaymentsRequestsTableProps {
   initialRequests: PaymentItemData[];
   isAdmin: boolean;
+  canApprove?: boolean;
+  isSuperAdmin?: boolean;
   currentUserId?: string;
   hideStatus?: boolean;
   hideApprovedBy?: boolean;
-
 }
 
 export function PaymentsRequestsTable({
   initialRequests,
   isAdmin,
+  canApprove = false,
+  isSuperAdmin = false,
   currentUserId,
   hideStatus = false,
   hideApprovedBy = false,
-
 }: PaymentsRequestsTableProps) {
   const router = useRouter();
   const [requests, setRequests] = useState<PaymentItemData[]>(initialRequests);
@@ -90,13 +97,8 @@ export function PaymentsRequestsTable({
   }
 
   const showActionColumn =
-  isAdmin &&
-  requests.some(
-    (r) =>
-      r.status === PaymentStatus.PENDING &&
-      r.userId !== currentUserId
-  );
-
+    (canApprove || isAdmin) &&
+    requests.some((r) => r.status === PaymentStatus.PENDING);
 
   return (
     <div className="overflow-x-auto max-h-[620px] overflow-y-auto no-scrollbar relative">
@@ -130,6 +132,15 @@ export function PaymentsRequestsTable({
               .toUpperCase();
             const approverName = req.approvedBy?.name || (req.status === PaymentStatus.PENDING ? "-" : "Admin");
 
+            const isRaisedByPaymentAdmin =
+              req.requiresSuperAdminApproval ||
+              req.createdBy?.role === Role.PAYMENT_ADMIN ||
+              (req.remarks?.toLowerCase().includes("payment admin") ?? false);
+
+            const isOwnRequest = req.userId === currentUserId;
+            const canApproveThisRow =
+              (isSuperAdmin || (canApprove && !isRaisedByPaymentAdmin)) && !isOwnRequest;
+
             return (
               <tr
                 key={req.id}
@@ -146,6 +157,18 @@ export function PaymentsRequestsTable({
                         {req.user?.mobileNumber && (
                           <p className="text-xs text-stone-400">{req.user.mobileNumber}</p>
                         )}
+                        {isRaisedByPaymentAdmin ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/70">
+                              <CreditCard size={11} className="text-emerald-600" />
+                              Raised by Payment Admin {req.createdBy?.name ? `(${req.createdBy.name})` : ""}
+                            </span>
+                          </div>
+                        ) : req.remarks ? (
+                          <span className="mt-1 inline-block rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200/70">
+                            {req.remarks}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -171,27 +194,56 @@ export function PaymentsRequestsTable({
                   </td>
                 )}
 
-                {showActionColumn && req.userId !== currentUserId &&(
+                {showActionColumn && (
                   <td className="px-6 py-4">
                     {req.status === PaymentStatus.PENDING && (
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          disabled={loadingId === req.id}
-                          onClick={() => handleAction(req.id, PaymentStatus.APPROVED, memberName)}
-                          className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-violet-200 hover:brightness-105 transition disabled:opacity-50"
-                        >
-                          <CircleCheck size={16} /> Approve
-                        </button>
+                        {canApproveThisRow ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={loadingId === req.id}
+                              onClick={() => handleAction(req.id, PaymentStatus.APPROVED, memberName)}
+                              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#654dde] to-[#ac58ee] px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-violet-200 hover:brightness-105 transition disabled:opacity-50"
+                            >
+                              <CircleCheck size={16} /> Approve
+                            </button>
 
-                        <button
-                          type="button"
-                          disabled={loadingId === req.id}
-                          onClick={() => handleAction(req.id, PaymentStatus.REJECTED, memberName)}
-                          className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#ef4444] to-[#dc2626] px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-red-200 hover:brightness-105 transition disabled:opacity-50"
-                        >
-                          <CircleX size={16} /> Reject
-                        </button>
+                            <button
+                              type="button"
+                              disabled={loadingId === req.id}
+                              onClick={() => handleAction(req.id, PaymentStatus.REJECTED, memberName)}
+                              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#ef4444] to-[#dc2626] px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-red-200 hover:brightness-105 transition disabled:opacity-50"
+                            >
+                              <CircleX size={16} /> Reject
+                            </button>
+
+                            {isSuperAdmin && (
+                              <EditTransactionDialog
+                                transaction={{
+                                  id: req.id,
+                                  userId: req.userId,
+                                  memberName,
+                                  month: req.month,
+                                  year: req.year,
+                                  amount: Number(req.amount),
+                                  status: req.status,
+                                  submittedAt: req.submittedAt,
+                                  remarks: req.remarks,
+                                }}
+                              />
+                            )}
+                          </>
+                        ) : isRaisedByPaymentAdmin && !isSuperAdmin ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                            <Crown size={13} className="text-amber-500" />
+                            Super Admin Approval Required
+                          </span>
+                        ) : isOwnRequest ? (
+                          <span className="text-xs text-stone-400 italic">Own Request</span>
+                        ) : (
+                          <span className="text-xs text-stone-400">Pending Review</span>
+                        )}
                       </div>
                     )}
                   </td>

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
-import { Crown, ExternalLink, MoreHorizontal, Shield, UserMinus } from "lucide-react";
+import { Crown, CreditCard, ExternalLink, MoreHorizontal, Shield, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -87,6 +87,15 @@ export function AdminRowActions({
         confirmText: "Promote to Super Admin",
         variant: "warning",
         icon: <Crown size={22} className="text-amber-600" />,
+      });
+    } else if (newRole === Role.PAYMENT_ADMIN) {
+      setConfirmConfig({
+        newRole,
+        title: "Set as Payment Admin",
+        description: `Assign ${admin.name} as Payment Admin? They will have permission to approve payments and add new payment entries.`,
+        confirmText: "Set as Payment Admin",
+        variant: "info",
+        icon: <CreditCard size={22} className="text-emerald-600" />,
       });
     } else {
       setConfirmConfig({
@@ -176,7 +185,7 @@ export function AdminRowActions({
                 {isSuperAdmin && !isSelf ? (
                   <>
                     <div className="my-1 border-t border-stone-100" />
-                    {admin.role !== Role.SUPER_ADMIN ? (
+                    {admin.role !== Role.SUPER_ADMIN && (
                       <button
                         type="button"
                         onClick={() => handleInitiateRoleChange(Role.SUPER_ADMIN)}
@@ -186,7 +195,9 @@ export function AdminRowActions({
                         <Crown size={15} />
                         Promote to Super Admin
                       </button>
-                    ) : (
+                    )}
+
+                    {admin.role !== Role.ADMIN && (
                       <button
                         type="button"
                         onClick={() => handleInitiateRoleChange(Role.ADMIN)}
@@ -195,6 +206,18 @@ export function AdminRowActions({
                       >
                         <Shield size={15} />
                         Set as Mandal Admin
+                      </button>
+                    )}
+
+                    {admin.role !== Role.PAYMENT_ADMIN && (
+                      <button
+                        type="button"
+                        onClick={() => handleInitiateRoleChange(Role.PAYMENT_ADMIN)}
+                        disabled={loading}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 text-left cursor-pointer disabled:opacity-50"
+                      >
+                        <CreditCard size={15} />
+                        Set as Payment Admin
                       </button>
                     )}
 

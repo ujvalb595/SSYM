@@ -20,6 +20,7 @@ const bloodGroupOptions = [
 ];
 
 const roleOptions = [
+  { label: "Payment Admin", value: "PAYMENT_ADMIN" },
   { label: "Admin", value: "ADMIN" },
   { label: "Super Admin", value: "SUPER_ADMIN" },
 ];

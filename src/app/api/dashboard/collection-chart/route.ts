@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXCLUDE_ORG_USER_FILTER } from "@/lib/constants";
 
 const FINANCIAL_YEAR_MONTHS = [
   { month: 10, label: "OCT" },
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
       : defaultFinancialYearStart;
 
   const totalMembersCount = await prisma.user.count({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ...EXCLUDE_ORG_USER_FILTER,
+    },
   });
   const monthlyMemberTarget = totalMembersCount * 500;
 

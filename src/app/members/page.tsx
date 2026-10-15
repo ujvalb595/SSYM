@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXCLUDE_ORG_USER_FILTER } from "@/lib/constants";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { MembersDirectoryView, MemberRowData } from "@/features/members/components/members-directory-view";
 
@@ -60,6 +61,7 @@ export default async function MembersPage() {
     try {
       const [users, auditLogs] = await Promise.all([
         prisma.user.findMany({
+          where: EXCLUDE_ORG_USER_FILTER,
           orderBy: { updatedAt: "desc" },
           include: {
             createdBy: {

@@ -122,13 +122,7 @@ export function DashboardContent({
   const totalPaymentsReceived = metricsData.totalPaymentsReceived;
   const totalDonationsReceived = metricsData.totalDonationsReceived;
   const totalIncome = totalPaymentsReceived + totalDonationsReceived;
-  const monthlyCollection = metricsData.monthlyCollectionSum;
   const totalExpenses = metricsData.totalExpenses;
-  const targetCollection = data?.targetCollection || 50000;
-
-    targetCollection > 0
-      ? Math.min(Math.round((monthlyCollection / targetCollection) * 100), 100)
-      : 0;
 
 
   const metrics = [
